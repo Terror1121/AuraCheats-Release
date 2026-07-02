@@ -1,19 +1,19 @@
 -- ============================================
 -- 🔒 AURA CHEATS - ЗАЩИЩЕННЫЙ ЗАГРУЗЧИК v2.2.0
--- С ВСТРОЕННОЙ HWID СИСТЕМОЙ
+-- С ВСТРОЕННОЙ HWID СИСТЕМОЙ (СТАБИЛЬНЫЙ)
 -- ============================================
 
 print("🔧 Загрузка AuraCheats v" .. "2.2.0")
 
 -- ============================================
--- 1. HWID СИСТЕМА (ТРЕХУРОВНЕВАЯ)
+-- 1. HWID СИСТЕМА (СТАБИЛЬНАЯ)
 -- ============================================
 
--- УРОВЕНЬ 1: Базовый HWID
+-- УРОВЕНЬ 1: Базовый HWID (постоянный)
 local function getBaseHwid()
     local components = {}
     
-    -- Пытаемся получить данные через инжектор
+    -- 1. ПЫТАЕМСЯ ПОЛУЧИТЬ HWID ЧЕРЕЗ ИНЖЕКТОР
     local success, result = pcall(function()
         -- CPU ID
         if syn and syn.cpu_id then
@@ -56,34 +56,49 @@ local function getBaseHwid()
         end
     end)
     
-    -- Если через syn не получилось, используем альтернативные методы
+    -- 2. ЕСЛИ syn НЕ ДОСТУПЕН - ИСПОЛЬЗУЕМ СТАБИЛЬНЫЕ ДАННЫЕ
     if #components == 0 then
-        -- Используем системную информацию через pcall
+        -- Используем UserId (постоянный)
+        local player = game.Players.LocalPlayer
+        if player then
+            table.insert(components, tostring(player.UserId))
+        end
+        
+        -- Используем информацию о системе (через pcall)
         local success2, result2 = pcall(function()
-            -- Пытаемся получить информацию через системные вызовы
-            if game and game:GetService("HttpService") then
-                local http = game:GetService("HttpService")
-                -- Генерируем уникальный идентификатор на основе доступных данных
-                local player = game.Players.LocalPlayer
-                if player then
-                    table.insert(components, tostring(player.UserId))
-                    table.insert(components, tostring(os.time()))
-                    table.insert(components, tostring(math.random(1000000, 9999999)))
-                end
+            -- Получаем информацию о графике (стабильно)
+            local graphics = settings().Rendering.QualityLevel
+            table.insert(components, tostring(graphics))
+            
+            -- Получаем информацию о звуке (стабильно)
+            local audio = settings().Sound.Volume
+            table.insert(components, tostring(audio))
+        end)
+        
+        -- Добавляем стабильные идентификаторы Roblox
+        local success3, result3 = pcall(function()
+            if game and game.GameId then
+                table.insert(components, tostring(game.GameId))
+            end
+            if game and game.PlaceId then
+                table.insert(components, tostring(game.PlaceId))
+            end
+        end)
+        
+        -- Добавляем базовую информацию о системе
+        local success4, result4 = pcall(function()
+            -- Разрешение экрана (стабильно)
+            if workspace and workspace.CurrentCamera then
+                local viewport = workspace.CurrentCamera.ViewportSize
+                table.insert(components, tostring(viewport.X) .. "x" .. tostring(viewport.Y))
             end
         end)
     end
     
-    -- Если все равно пусто, используем базовый идентификатор
-    if #components == 0 then
-        table.insert(components, tostring(os.time()))
-        table.insert(components, tostring(math.random(1000000, 9999999)))
-    end
-    
-    -- Собираем в строку
+    -- 3. КОМБИНИРУЕМ ВСЕ В СТРОКУ
     local combined = table.concat(components, "|")
     
-    -- Хешируем
+    -- 4. ХЕШИРУЕМ (ВСЕГДА ОДИНАКОВО)
     local hash = 0
     for i = 1, #combined do
         hash = (hash * 31 + string.byte(combined, i)) % 2^32
@@ -92,7 +107,7 @@ local function getBaseHwid()
     return string.format("%08X", hash)
 end
 
--- УРОВЕНЬ 2: Контрольные суммы системных файлов
+-- УРОВЕНЬ 2: Контрольные суммы системных файлов (стабильные)
 local function getSystemChecksum()
     local checksums = {}
     
@@ -119,16 +134,7 @@ local function getSystemChecksum()
         end
     end
     
-    -- Добавляем информацию о системных драйверах
-    local success2, result2 = pcall(function()
-        if syn and syn.system_drivers then
-            local drivers = syn.system_drivers()
-            for i = 1, math.min(#drivers, 5) do
-                table.insert(checksums, tostring(drivers[i]))
-            end
-        end
-    end)
-    
+    -- Если не удалось прочитать файлы - используем альтернативу
     if #checksums == 0 then
         table.insert(checksums, "DEFAULT_CHECKSUM")
     end
@@ -136,14 +142,11 @@ local function getSystemChecksum()
     return table.concat(checksums, "|")
 end
 
--- УРОВЕНЬ 3: Поведенческие данные
+-- УРОВЕНЬ 3: Поведенческие данные (стабильные)
 local function getBehavioralData()
     local data = {}
     
-    -- День недели использования
-    data.timePattern = os.date("%w")
-    
-    -- Разрешение экрана
+    -- Разрешение экрана (меняется редко)
     local success, result = pcall(function()
         if workspace and workspace.CurrentCamera then
             local viewport = workspace.CurrentCamera.ViewportSize
@@ -154,18 +157,8 @@ local function getBehavioralData()
         data.screenSize = "1920x1080"
     end
     
-    -- Версия Windows (если доступно)
+    -- Язык системы (стабильный)
     local success2, result2 = pcall(function()
-        if syn and syn.windows_version then
-            data.winVer = syn.windows_version()
-        end
-    end)
-    if not data.winVer then
-        data.winVer = "Windows_Unknown"
-    end
-    
-    -- Язык системы
-    local success3, result3 = pcall(function()
         if syn and syn.system_language then
             data.systemLang = syn.system_language()
         end
@@ -174,10 +167,20 @@ local function getBehavioralData()
         data.systemLang = "en-US"
     end
     
+    -- Версия Windows (стабильная)
+    local success3, result3 = pcall(function()
+        if syn and syn.windows_version then
+            data.winVer = syn.windows_version()
+        end
+    end)
+    if not data.winVer then
+        data.winVer = "Windows_Unknown"
+    end
+    
     return data
 end
 
--- ФИНАЛЬНАЯ HWID ФУНКЦИЯ
+-- ФИНАЛЬНАЯ HWID ФУНКЦИЯ (СТАБИЛЬНАЯ)
 local function getFullHardwareId()
     -- 1. Базовый HWID
     local baseHwid = getBaseHwid()
@@ -190,10 +193,9 @@ local function getFullHardwareId()
     
     -- 4. Комбинируем все в один уникальный идентификатор
     local combined = string.format(
-        "%s|%s|%s|%s|%s",
+        "%s|%s|%s|%s",
         baseHwid,
         sysChecksum,
-        behavior.timePattern,
         behavior.screenSize,
         behavior.winVer
     )
@@ -439,7 +441,6 @@ local function parseDate(dateString)
 end
 
 local function saveKeyData(data)
-    -- Добавляем HWID в сохранение
     data.hwid = getCachedHwid()
     
     local success, json = pcall(function()
@@ -465,23 +466,30 @@ local function loadKeyData()
 end
 
 -- ============================================
--- 9. АКТИВАЦИЯ ЧЕРЕЗ БОТА С HWID
+-- 9. ИСПРАВЛЕННАЯ АКТИВАЦИЯ (ПЕРЕДАЕМ USER_ID)
 -- ============================================
 local function activateKeyThroughBot(key, retryCount)
     retryCount = retryCount or 0
     
     local player = game.Players.LocalPlayer
     local hwid = getCachedHwid()
+    
+    -- ФИКС: Передаем UserId вместо имени (чтобы бот мог получить имя через API)
+    local userId = player.UserId
+    local userName = player.Name
+    
     local url = string.format(
         "%s?key=%s&user=%s&hwid=%s",
         KEY_CONFIG.BOT_URL,
         key,
-        player.Name,
+        userId,  -- ← Теперь передаем ID, а не имя!
         hwid
     )
     
     print("📡 Отправка запроса к боту...")
     print("   HWID: " .. hwid)
+    print("   User ID: " .. userId)
+    print("   User Name: " .. userName)
     
     local success, response = pcall(function()
         return game:HttpGet(url)
@@ -508,7 +516,6 @@ local function activateKeyThroughBot(key, retryCount)
         end
         return true, os.time(), os.time() + (KEY_CONFIG.VALIDITY_DAYS * 86400), "✅ Ключ активирован!"
     elseif data.status == "active" then
-        -- Проверяем HWID
         if data.hwid and data.hwid ~= hwid then
             return false, nil, nil, "❌ Ключ уже привязан к другому ПК!\nВаш HWID: " .. hwid .. "\nПривязан: " .. data.hwid
         end
@@ -548,7 +555,6 @@ local function checkSavedKey()
         end
         print("✅ HWID совпадает: " .. currentHwid)
     else
-        -- Если нет HWID в сохранении, обновляем
         print("⚠️ HWID не найден в сохранении, обновляем...")
         savedData.hwid = getCachedHwid()
         saveKeyData(savedData)
@@ -621,7 +627,7 @@ local function loadMainScript()
 end
 
 -- ============================================
--- 13. GUI ВВОДА КЛЮЧА (С ОТОБРАЖЕНИЕМ HWID)
+-- 13. GUI ВВОДА КЛЮЧА
 -- ============================================
 local function showKeyWindow()
     local player = game.Players.LocalPlayer
@@ -683,7 +689,6 @@ local function showKeyWindow()
     subtitle.Font = Enum.Font.Gotham
     subtitle.Parent = mainFrame
     
-    -- HWID информация
     local hwidFrame = Instance.new("Frame")
     hwidFrame.Size = UDim2.new(1, -40, 0, 30)
     hwidFrame.Position = UDim2.new(0, 20, 0, 165)
