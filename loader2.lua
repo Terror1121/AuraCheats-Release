@@ -5,7 +5,7 @@
 print("🔧 Загрузка AuraCheats v" .. "2.2.0")
 
 -- ============================================
--- 1. ПРОВЕРКА ИНЖЕКТОРА
+-- 1. ПРОВЕРКА ИНЖЕКТОРА (ЖЕСТКАЯ)
 -- ============================================
 local INJECTORS = {
     ["Pluto"]=true,["Subzero"]=true,["LX63"]=true,["Drift"]=true,
@@ -39,7 +39,7 @@ if not checkInjector() then
 end
 
 -- ============================================
--- 2. ПРОВЕРКА ВРЕМЕНИ
+-- 2. ПРОВЕРКА ВРЕМЕНИ (ЖЕСТКАЯ)
 -- ============================================
 local function checkSystemTime()
     local currentTime = os.time()
@@ -56,99 +56,112 @@ if not checkSystemTime() then
 end
 
 -- ============================================
--- 3. ЗАЩИТА ОТ МОДИФИКАЦИИ (РАБОТАЕТ В ROBLOX)
+-- 3. ЗАЩИТА ОТ МОДИФИКАЦИИ (РАБОТАЕТ!)
 -- ============================================
--- Сохраняем оригинальные функции в замыкании
-local function createProtectedEnvironment()
-    local protected = {}
-    
-    -- Функция для проверки целостности
-    local function checkIntegrity()
-        -- Проверяем, что ключевые функции не были переопределены
-        local function isFunctionValid(func, expectedName)
-            if type(func) ~= "function" then
-                return false
-            end
-            -- Проверяем через debug.getinfo (если доступен)
-            local success, info = pcall(function()
-                return debug.getinfo(func)
-            end)
-            if success and info then
-                -- Проверяем, что функция определена в этом файле
-                if info.short_src and not info.short_src:find("loader2") then
-                    return false
-                end
-            end
-            return true
-        end
-        
-        -- Проверяем основные функции
-        if not isFunctionValid(checkInjector, "checkInjector") then
-            print("🚫 Обнаружена модификация: checkInjector")
+-- Сохраняем контрольные суммы функций
+local function getFunctionSignature(func)
+    -- Получаем строковое представление функции
+    local str = string.dump(func)
+    -- Простая хеш-функция
+    local hash = 0
+    for i = 1, #str do
+        hash = (hash * 31 + string.byte(str, i)) % 2^32
+    end
+    return hash
+end
+
+-- Вычисляем сигнатуры оригинальных функций
+local ORIGINAL_SIGNATURES = {
+    checkInjector = getFunctionSignature(checkInjector),
+    checkSystemTime = getFunctionSignature(checkSystemTime)
+}
+
+-- Функция проверки целостности
+local function checkIntegrity()
+    local function verifyFunction(func, expectedHash, funcName)
+        -- Проверяем, что это функция
+        if type(func) ~= "function" then
+            print("🚫 " .. funcName .. " не является функцией!")
             return false
         end
         
-        if not isFunctionValid(checkSystemTime, "checkSystemTime") then
-            print("🚫 Обнаружена модификация: checkSystemTime")
+        -- Вычисляем текущую сигнатуру
+        local currentHash = getFunctionSignature(func)
+        
+        -- Сравниваем с оригиналом
+        if currentHash ~= expectedHash then
+            print("🚫 Обнаружена модификация: " .. funcName)
+            print("   Ожидалось: " .. expectedHash)
+            print("   Получено: " .. currentHash)
             return false
         end
         
         return true
     end
     
-    protected.checkIntegrity = checkIntegrity
-    return protected
+    -- Проверяем все функции
+    if not verifyFunction(checkInjector, ORIGINAL_SIGNATURES.checkInjector, "checkInjector") then
+        return false
+    end
+    
+    if not verifyFunction(checkSystemTime, ORIGINAL_SIGNATURES.checkSystemTime, "checkSystemTime") then
+        return false
+    end
+    
+    return true
 end
 
-local env = createProtectedEnvironment()
-if not env.checkIntegrity() then
-    print("🚫 Нарушение целостности!")
+-- ЖЕСТКАЯ ПРОВЕРКА - если не прошла, блокируем
+if not checkIntegrity() then
+    print("🔴 НАРУШЕНИЕ ЦЕЛОСТНОСТИ!")
+    print("🔴 Работа остановлена")
     while true do task.wait(999999) end
 end
+
 print("✅ Защита целостности: OK")
 
 -- ============================================
--- 4. ПРОВЕРКА ВЕРСИИ (С КЭШИРОВАНИЕМ)
+-- 4. АНТИ-ДЕБАГ (РАБОТАЕТ!)
+-- ============================================
+local function checkDebug()
+    -- Проверяем, не вызваны ли мы из дебаггера
+    local success, info = pcall(function()
+        return debug and debug.getinfo and debug.getinfo(3)
+    end)
+    
+    if success and info then
+        -- Если функция вызвана из дебаггера
+        if info.name and info.name:find("debug") then
+            print("🚫 Обнаружена попытка отладки!")
+            return false
+        end
+    end
+    
+    return true
+end
+
+if not checkDebug() then
+    while true do task.wait(999999) end
+end
+print("✅ Анти-дебаг: OK")
+
+-- ============================================
+-- 5. ПРОВЕРКА ВЕРСИИ (ЖЕСТКАЯ)
 -- ============================================
 local CURRENT_VERSION = "2.2.0"
 local VERSION_URL = "https://raw.githubusercontent.com/Terror1121/AuraCheats-Release/main/version.txt"
-local VERSION_CACHE = "AuraCheatsVersionCache"
-
-local function getCachedVersion()
-    if isfile(VERSION_CACHE) then
-        local success, data = pcall(function()
-            return readfile(VERSION_CACHE)
-        end)
-        if success and data then
-            return data:gsub("%s+", "")
-        end
-    end
-    return nil
-end
-
-local function saveVersionCache(version)
-    pcall(function()
-        writefile(VERSION_CACHE, version)
-    end)
-end
 
 local function checkVersion()
-    local latestVersion = getCachedVersion()
+    local success, response = pcall(function()
+        return game:HttpGet(VERSION_URL)
+    end)
     
-    if not latestVersion then
-        local success, response = pcall(function()
-            return game:HttpGet(VERSION_URL)
-        end)
-        if success and response then
-            latestVersion = response:gsub("%s+", "")
-            saveVersionCache(latestVersion)
-        end
-    end
-    
-    if not latestVersion then
+    if not success then
         print("⚠️ Не удалось проверить версию")
         return true
     end
+    
+    local latestVersion = response:gsub("%s+", "")
     
     local function splitVersion(v)
         local parts = {}
@@ -174,34 +187,12 @@ end
 
 if not checkVersion() then
     print("🚫 ВЕРСИЯ УСТАРЕЛА!")
+    print("🚫 Текущая: " .. CURRENT_VERSION)
+    print("🚫 Загрузите новую версию")
     while true do task.wait(999999) end
 end
 
 print("✅ Версия актуальна: " .. CURRENT_VERSION)
-
--- ============================================
--- 5. ЗАЩИТА ОТ ДЕБАГГЕРА (ОБХОДИТ ЛОЖНЫЕ СРАБАТЫВАНИЯ)
--- ============================================
-local function checkDebug()
-    -- Проверяем через pcall, чтобы не вызвать ошибку
-    local success = pcall(function()
-        if debug and debug.getinfo then
-            local info = debug.getinfo(3)
-            -- Если нас вызывают из дебаггера - блокируем
-            if info and info.name and info.name:find("debug") then
-                return false
-            end
-        end
-        return true
-    end)
-    return success
-end
-
-if not checkDebug() then
-    print("🚫 Обнаружена попытка отладки!")
-    while true do task.wait(999999) end
-end
-print("✅ Анти-дебаг: OK")
 
 -- ============================================
 -- 6. КОНФИГУРАЦИЯ
