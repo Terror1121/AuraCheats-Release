@@ -3,7 +3,7 @@
 -- ============================================
 
 local CONFIG = {
-    LOADER_URL = "https://raw.githubusercontent.com/Terror1121/AuraCheats-Release/main/loader2.lua",
+    LOADER_URL = "https://raw.githubusercontent.com/Terror1121/AuraCheats-Release/refs/heads/main/loader2.lua",
     VERSION = "2.2.0"
 }
 
