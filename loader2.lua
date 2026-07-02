@@ -24,26 +24,58 @@ if debug and debug.getinfo then
 end
 
 -- ============================================
--- 2. ПРОВЕРКА ИНЖЕКТОРА
+-- 2. ПРОВЕРКА ИНЖЕКТОРА (ПОЛНЫЙ СПИСОК)
 -- ============================================
 
 local function checkInjector()
     local execName = getexecutorname and getexecutorname() or "Unknown"
     
     local allowed = {
+        -- PC
+        ["Pluto"] = true,
+        ["Subzero"] = true,
+        ["LX63"] = true,
+        ["Drift"] = true,
+        ["Valex"] = true,
+        ["Bunni"] = true,
+        ["Ronix"] = true,
+        ["JJSploit"] = true,
+        ["Solara"] = true,
+        ["Xeno"] = true,
+        ["Zenith"] = true,
+        ["Wave"] = true,
+        ["Volcano"] = true,
+        ["Velocity"] = true,
+        ["SirHurt"] = true,
+        ["Lovreware"] = true,
+        ["Swift"] = true,
+        
+        -- Mobile
+        ["Delta"] = true,
+        ["KRNL"] = true,
+        ["Fluxus"] = true,
+        ["Hydrogen"] = true,
+        ["Arceus X"] = true,
+        
+        -- Mac
+        ["Opiumware"] = true,
+        ["Synapse Mac"] = true,
+        ["Macsploit"] = true,
+        
+        -- Запасные варианты
         ["Synapse X"] = true,
         ["Krnl"] = true,
         ["ScriptWare"] = true,
         ["Vega X"] = true,
-        ["Delta"] = true,
-        ["Fluxus"] = true,
         ["Oxygen U"] = true,
-        ["Xeno"] = true,
     }
     
     if not allowed[execName] then
         print("🚫 Инжектор не поддерживается!")
-        print("Используйте: Synapse X, Krnl, ScriptWare, Vega X, Delta, Fluxus, Oxygen U или Xeno")
+        print("Используйте один из поддерживаемых инжекторов:")
+        print("PC: Pluto, Subzero, LX63, Drift, Valex, Bunni, Ronix, JJSploit, Solara, Xeno, Zenith, Wave, Volcano, Velocity, SirHurt, Lovreware, Swift")
+        print("Mobile: Delta, KRNL, Fluxus, Hydrogen, Arceus X")
+        print("Mac: Opiumware, Synapse Mac, Macsploit")
         return false
     end
     
@@ -170,7 +202,7 @@ if not checkVersion() then
 end
 
 -- ============================================
--- 6. КОНФИГУРАЦИЯ КЛЮЧЕЙ (ТОЛЬКО 7 ДНЕЙ)
+-- 6. КОНФИГУРАЦИЯ КЛЮЧЕЙ (БЕЗ ПРЯМОЙ ССЫЛКИ НА keys.txt)
 -- ============================================
 
 local KEY_CONFIG = {
@@ -275,7 +307,9 @@ local function decrypt(data, key)
     local decrypted = ""
     for i = 1, #data do
         local char = data:sub(i, i)
-        local code = string.byte(char) ~ string.byte(key:sub((i-1) % #key + 1, (i-1) % #key + 1))
+        local charCode = string.byte(char)
+        local keyCode = string.byte(key:sub((i-1) % #key + 1, (i-1) % #key + 1))
+        local code = (charCode - keyCode) % 256
         decrypted = decrypted .. string.char(code)
     end
     return decrypted
