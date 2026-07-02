@@ -466,7 +466,7 @@ local function loadKeyData()
 end
 
 -- ============================================
--- 9. ИСПРАВЛЕННАЯ АКТИВАЦИЯ (ПЕРЕДАЕМ USER_ID)
+-- 9. АКТИВАЦИЯ ЧЕРЕЗ БОТА (ПЕРЕДАЕМ USER_ID)
 -- ============================================
 local function activateKeyThroughBot(key, retryCount)
     retryCount = retryCount or 0
@@ -474,7 +474,7 @@ local function activateKeyThroughBot(key, retryCount)
     local player = game.Players.LocalPlayer
     local hwid = getCachedHwid()
     
-    -- ФИКС: Передаем UserId вместо имени (чтобы бот мог получить имя через API)
+    -- Передаем UserId (число), бот получит имя через API
     local userId = player.UserId
     local userName = player.Name
     
@@ -482,7 +482,7 @@ local function activateKeyThroughBot(key, retryCount)
         "%s?key=%s&user=%s&hwid=%s",
         KEY_CONFIG.BOT_URL,
         key,
-        userId,  -- ← Теперь передаем ID, а не имя!
+        userId,  -- ← передаем ID, а не имя!
         hwid
     )
     
