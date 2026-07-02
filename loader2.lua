@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАЩИЩЕННЫЙ ЗАГРУЗЧИК v2.2.0
--- С ВСТРОЕННОЙ HWID СИСТЕМОЙ (СТАБИЛЬНЫЙ)
+-- 🔒 AURA CHEATS - ЗАЩИЩЕННЫЙ ЗАГРУЗЧИК v2.2.1
+-- ИСПРАВЛЕННАЯ АКТИВАЦИЯ (ПЕРЕДАЧА USER_ID)
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v" .. "2.2.0")
+print("🔧 Загрузка AuraCheats v" .. "2.2.1")
 
 -- ============================================
 -- 1. HWID СИСТЕМА (СТАБИЛЬНАЯ)
@@ -331,7 +331,7 @@ print("✅ Анти-дебаг: OK")
 -- ============================================
 -- 6. ПРОВЕРКА ВЕРСИИ (С КЭШИРОВАНИЕМ)
 -- ============================================
-local CURRENT_VERSION = "2.2.0"
+local CURRENT_VERSION = "2.2.1"
 local VERSION_URL = "https://raw.githubusercontent.com/Terror1121/AuraCheats-Release/main/version.txt"
 local VERSION_CACHE = "AuraCheatsVersionCache"
 
@@ -466,7 +466,7 @@ local function loadKeyData()
 end
 
 -- ============================================
--- 9. АКТИВАЦИЯ ЧЕРЕЗ БОТА (ПЕРЕДАЕМ USER_ID)
+-- 9. АКТИВАЦИЯ ЧЕРЕЗ БОТА (ПЕРЕДАЕМ USER_ID!)
 -- ============================================
 local function activateKeyThroughBot(key, retryCount)
     retryCount = retryCount or 0
@@ -474,7 +474,7 @@ local function activateKeyThroughBot(key, retryCount)
     local player = game.Players.LocalPlayer
     local hwid = getCachedHwid()
     
-    -- Передаем UserId (число), бот получит имя через API
+    -- ПЕРЕДАЕМ USER_ID (число), а не имя!
     local userId = player.UserId
     local userName = player.Name
     
@@ -482,7 +482,7 @@ local function activateKeyThroughBot(key, retryCount)
         "%s?key=%s&user=%s&hwid=%s",
         KEY_CONFIG.BOT_URL,
         key,
-        userId,  -- ← передаем ID, а не имя!
+        userId,
         hwid
     )
     
