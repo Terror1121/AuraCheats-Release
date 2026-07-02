@@ -1,7 +1,35 @@
-print("🔧 Загрузка AuraCheats v2.2.0")
+-- ============================================
+-- 🔒 AURA CHEATS - ЗАЩИЩЕННЫЙ ЗАГРУЗЧИК v2.2.0
+-- ============================================
+
+print("🔧 Загрузка AuraCheats v" .. "2.2.0")
+
+-- ============================================
+-- 1. ПРОВЕРКА ИНЖЕКТОРА
+-- ============================================
+local INJECTORS = {
+    ["Pluto"]=true,["Subzero"]=true,["LX63"]=true,["Drift"]=true,
+    ["Valex"]=true,["Bunni"]=true,["Ronix"]=true,["JJSploit"]=true,
+    ["Solara"]=true,["Xeno"]=true,["Zenith"]=true,["Wave"]=true,
+    ["Volcano"]=true,["Velocity"]=true,["SirHurt"]=true,
+    ["Lovreware"]=true,["Swift"]=true,
+    ["Delta"]=true,["KRNL"]=true,["Fluxus"]=true,
+    ["Hydrogen"]=true,["Arceus X"]=true,
+    ["Opiumware"]=true,["Synapse Mac"]=true,["Macsploit"]=true,
+    ["Synapse X"]=true,["Krnl"]=true,["ScriptWare"]=true,
+    ["Vega X"]=true,["Oxygen U"]=true,
+    ["Celery"]=true,["Coco"]=true,["Electron"]=true,
+    ["Evon"]=true,["Kiwi X"]=true,["Mystic"]=true,
+    ["Nova"]=true,["Owlware"]=true,["Raccoon"]=true,
+    ["Skisploit"]=true,["Tora"]=true,["W-Proxy"]=true
+}
 
 local function checkInjector()
     local execName = getexecutorname and getexecutorname() or "Unknown"
+    if not INJECTORS[execName] then
+        print("🚫 Инжектор не поддерживается: " .. execName)
+        return false
+    end
     print("✅ Инжектор: " .. execName)
     return true
 end
@@ -10,6 +38,9 @@ if not checkInjector() then
     while true do task.wait(999999) end
 end
 
+-- ============================================
+-- 2. ПРОВЕРКА ВРЕМЕНИ
+-- ============================================
 local function checkSystemTime()
     local currentTime = os.time()
     if currentTime < os.time({year=2023, month=1, day=1}) then
@@ -24,18 +55,120 @@ if not checkSystemTime() then
     while true do task.wait(999999) end
 end
 
+-- ============================================
+-- 3. ЗАЩИТА ОТ МОДИФИКАЦИИ (РАБОТАЕТ В ROBLOX)
+-- ============================================
+-- Сохраняем оригинальные функции в замыкании
+local function createProtectedEnvironment()
+    local protected = {}
+    
+    -- Функция для проверки целостности
+    local function checkIntegrity()
+        -- Проверяем, что ключевые функции не были переопределены
+        local function isFunctionValid(func, expectedName)
+            if type(func) ~= "function" then
+                return false
+            end
+            -- Проверяем через debug.getinfo (если доступен)
+            local success, info = pcall(function()
+                return debug.getinfo(func)
+            end)
+            if success and info then
+                -- Проверяем, что функция определена в этом файле
+                if info.short_src and not info.short_src:find("loader2") then
+                    return false
+                end
+            end
+            return true
+        end
+        
+        -- Проверяем основные функции
+        if not isFunctionValid(checkInjector, "checkInjector") then
+            print("🚫 Обнаружена модификация: checkInjector")
+            return false
+        end
+        
+        if not isFunctionValid(checkSystemTime, "checkSystemTime") then
+            print("🚫 Обнаружена модификация: checkSystemTime")
+            return false
+        end
+        
+        return true
+    end
+    
+    protected.checkIntegrity = checkIntegrity
+    return protected
+end
+
+local env = createProtectedEnvironment()
+if not env.checkIntegrity() then
+    print("🚫 Нарушение целостности!")
+    while true do task.wait(999999) end
+end
+print("✅ Защита целостности: OK")
+
+-- ============================================
+-- 4. ПРОВЕРКА ВЕРСИИ (С КЭШИРОВАНИЕМ)
+-- ============================================
 local CURRENT_VERSION = "2.2.0"
 local VERSION_URL = "https://raw.githubusercontent.com/Terror1121/AuraCheats-Release/main/version.txt"
+local VERSION_CACHE = "AuraCheatsVersionCache"
+
+local function getCachedVersion()
+    if isfile(VERSION_CACHE) then
+        local success, data = pcall(function()
+            return readfile(VERSION_CACHE)
+        end)
+        if success and data then
+            return data:gsub("%s+", "")
+        end
+    end
+    return nil
+end
+
+local function saveVersionCache(version)
+    pcall(function()
+        writefile(VERSION_CACHE, version)
+    end)
+end
 
 local function checkVersion()
-    local success, response = pcall(function()
-        return game:HttpGet(VERSION_URL)
-    end)
-    if not success then
+    local latestVersion = getCachedVersion()
+    
+    if not latestVersion then
+        local success, response = pcall(function()
+            return game:HttpGet(VERSION_URL)
+        end)
+        if success and response then
+            latestVersion = response:gsub("%s+", "")
+            saveVersionCache(latestVersion)
+        end
+    end
+    
+    if not latestVersion then
         print("⚠️ Не удалось проверить версию")
         return true
     end
-    local latestVersion = response:gsub("%s+", "")
+    
+    local function splitVersion(v)
+        local parts = {}
+        for part in v:gmatch("[^.]+") do
+            table.insert(parts, tonumber(part) or 0)
+        end
+        return parts
+    end
+    
+    local current = splitVersion(CURRENT_VERSION)
+    local latest = splitVersion(latestVersion)
+    
+    for i = 1, math.max(#current, #latest) do
+        local c = current[i] or 0
+        local l = latest[i] or 0
+        if c ~= l then
+            return c > l
+        end
+    end
+    
     return true
 end
 
@@ -46,6 +179,33 @@ end
 
 print("✅ Версия актуальна: " .. CURRENT_VERSION)
 
+-- ============================================
+-- 5. ЗАЩИТА ОТ ДЕБАГГЕРА (ОБХОДИТ ЛОЖНЫЕ СРАБАТЫВАНИЯ)
+-- ============================================
+local function checkDebug()
+    -- Проверяем через pcall, чтобы не вызвать ошибку
+    local success = pcall(function()
+        if debug and debug.getinfo then
+            local info = debug.getinfo(3)
+            -- Если нас вызывают из дебаггера - блокируем
+            if info and info.name and info.name:find("debug") then
+                return false
+            end
+        end
+        return true
+    end)
+    return success
+end
+
+if not checkDebug() then
+    print("🚫 Обнаружена попытка отладки!")
+    while true do task.wait(999999) end
+end
+print("✅ Анти-дебаг: OK")
+
+-- ============================================
+-- 6. КОНФИГУРАЦИЯ
+-- ============================================
 local KEY_CONFIG = {
     BOT_URL = "https://aura-cheats-bot.onrender.com/activate",
     MAIN_URL = "https://raw.githubusercontent.com/Terror1121/AuraCheats-Release/main/main.lua",
@@ -55,6 +215,9 @@ local KEY_CONFIG = {
     ENCRYPT_KEY = "AuraCheats2024"
 }
 
+-- ============================================
+-- 7. СИСТЕМА КЛЮЧЕЙ
+-- ============================================
 local keyData = {
     isValid = false,
     activationDate = nil,
@@ -101,16 +264,23 @@ local function loadKeyData()
     return nil
 end
 
+-- ============================================
+-- 8. АКТИВАЦИЯ ЧЕРЕЗ БОТА
+-- ============================================
 local function activateKeyThroughBot(key)
     local player = game.Players.LocalPlayer
     local url = KEY_CONFIG.BOT_URL .. "?key=" .. key .. "&user=" .. player.Name
+    
     local success, response = pcall(function()
         return game:HttpGet(url)
     end)
+    
     if not success then
         return false, nil, nil, "❌ Ошибка подключения"
     end
+    
     local data = game:GetService("HttpService"):JSONDecode(response)
+    
     if data.status == "success" then
         local expTime = parseDate(data.expires)
         if expTime then
@@ -130,6 +300,9 @@ local function activateKeyThroughBot(key)
     end
 end
 
+-- ============================================
+-- 9. РАСШИФРОВКА (XOR)
+-- ============================================
 local function decrypt(data, key)
     local decrypted = ""
     for i = 1, #data do
@@ -142,25 +315,46 @@ local function decrypt(data, key)
     return decrypted
 end
 
+-- ============================================
+-- 10. ЗАГРУЗКА ОСНОВНОГО СКРИПТА
+-- ============================================
 local function loadMainScript()
     print("📥 Загрузка основного скрипта...")
+    
     local success, encryptedContent = pcall(function()
         return game:HttpGet(KEY_CONFIG.MAIN_URL)
     end)
+    
     if not success then
         print("❌ Ошибка загрузки основного скрипта")
         return
     end
-    local decrypted = decrypt(encryptedContent, KEY_CONFIG.ENCRYPT_KEY)
-    local func = loadstring(decrypted)
-    if func then
-        print("✅ Основной скрипт загружен")
-        pcall(func, keyData)
-    else
-        print("❌ Ошибка расшифровки")
+    
+    if #encryptedContent < 100 then
+        print("❌ Загруженный файл поврежден")
+        return
     end
+    
+    local decrypted = decrypt(encryptedContent, KEY_CONFIG.ENCRYPT_KEY)
+    
+    if not decrypted or #decrypted < 100 then
+        print("❌ Ошибка расшифровки")
+        return
+    end
+    
+    local func, err = loadstring(decrypted)
+    if not func then
+        print("❌ Ошибка компиляции: " .. (err or "неизвестно"))
+        return
+    end
+    
+    print("✅ Основной скрипт загружен")
+    pcall(func, keyData)
 end
 
+-- ============================================
+-- 11. GUI ВВОДА КЛЮЧА
+-- ============================================
 local function showKeyWindow()
     local player = game.Players.LocalPlayer
     if not player or not player.PlayerGui then
@@ -346,6 +540,9 @@ local function showKeyWindow()
     end)
 end
 
+-- ============================================
+-- 12. ПРОВЕРКА СОХРАНЕННОГО КЛЮЧА
+-- ============================================
 local function checkSavedKey()
     local savedData = loadKeyData()
     if not savedData then
@@ -365,6 +562,9 @@ local function checkSavedKey()
     return true
 end
 
+-- ============================================
+-- 13. ЗАПУСК
+-- ============================================
 if checkSavedKey() then
     local daysLeft = math.floor((keyData.expirationDate - os.time()) / 86400)
     print("✅ Ключ загружен из сохранения")
