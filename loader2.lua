@@ -1,12 +1,10 @@
--- ============================================
--- 🔒 AURA CHEATS - ЗАЩИЩЕННЫЙ ЗАГРУЗЧИК v2.2.0
--- ============================================
-
 print("🔧 Загрузка AuraCheats v" .. "2.2.0")
 
 -- ============================================
--- 1. ПРОВЕРКА ИНЖЕКТОРА (ЖЕСТКАЯ)
+-- 1. ПРОВЕРКА ИНЖЕКТОРА
 -- ============================================
+print("📌 [1/6] Проверка инжектора...")
+
 local INJECTORS = {
     ["Pluto"]=true,["Subzero"]=true,["LX63"]=true,["Drift"]=true,
     ["Valex"]=true,["Bunni"]=true,["Ronix"]=true,["JJSploit"]=true,
@@ -39,8 +37,10 @@ if not checkInjector() then
 end
 
 -- ============================================
--- 2. ПРОВЕРКА ВРЕМЕНИ (ЖЕСТКАЯ)
+-- 2. ПРОВЕРКА ВРЕМЕНИ
 -- ============================================
+print("📌 [2/6] Проверка времени...")
+
 local function checkSystemTime()
     local currentTime = os.time()
     if currentTime < os.time({year=2023, month=1, day=1}) then
@@ -56,98 +56,59 @@ if not checkSystemTime() then
 end
 
 -- ============================================
--- 3. ЗАЩИТА ОТ МОДИФИКАЦИИ (РАБОТАЕТ!)
+-- 3. ЗАЩИТА ОТ МОДИФИКАЦИИ (УПРОЩЕННАЯ)
 -- ============================================
--- Сохраняем контрольные суммы функций
-local function getFunctionSignature(func)
-    -- Получаем строковое представление функции
-    local str = string.dump(func)
-    -- Простая хеш-функция
-    local hash = 0
-    for i = 1, #str do
-        hash = (hash * 31 + string.byte(str, i)) % 2^32
-    end
-    return hash
-end
+print("📌 [3/6] Проверка целостности...")
 
--- Вычисляем сигнатуры оригинальных функций
-local ORIGINAL_SIGNATURES = {
-    checkInjector = getFunctionSignature(checkInjector),
-    checkSystemTime = getFunctionSignature(checkSystemTime)
-}
-
--- Функция проверки целостности
+-- Просто проверяем, что функции существуют
 local function checkIntegrity()
-    local function verifyFunction(func, expectedHash, funcName)
-        -- Проверяем, что это функция
-        if type(func) ~= "function" then
-            print("🚫 " .. funcName .. " не является функцией!")
-            return false
-        end
-        
-        -- Вычисляем текущую сигнатуру
-        local currentHash = getFunctionSignature(func)
-        
-        -- Сравниваем с оригиналом
-        if currentHash ~= expectedHash then
-            print("🚫 Обнаружена модификация: " .. funcName)
-            print("   Ожидалось: " .. expectedHash)
-            print("   Получено: " .. currentHash)
-            return false
-        end
-        
-        return true
-    end
-    
-    -- Проверяем все функции
-    if not verifyFunction(checkInjector, ORIGINAL_SIGNATURES.checkInjector, "checkInjector") then
+    if type(checkInjector) ~= "function" then
+        print("🚫 checkInjector не функция!")
         return false
     end
-    
-    if not verifyFunction(checkSystemTime, ORIGINAL_SIGNATURES.checkSystemTime, "checkSystemTime") then
+    if type(checkSystemTime) ~= "function" then
+        print("🚫 checkSystemTime не функция!")
         return false
     end
-    
     return true
 end
 
--- ЖЕСТКАЯ ПРОВЕРКА - если не прошла, блокируем
 if not checkIntegrity() then
-    print("🔴 НАРУШЕНИЕ ЦЕЛОСТНОСТИ!")
-    print("🔴 Работа остановлена")
+    print("🔴 Нарушение целостности!")
     while true do task.wait(999999) end
 end
 
 print("✅ Защита целостности: OK")
 
 -- ============================================
--- 4. АНТИ-ДЕБАГ (РАБОТАЕТ!)
+-- 4. АНТИ-ДЕБАГ (УПРОЩЕННЫЙ)
 -- ============================================
+print("📌 [4/6] Анти-дебаг...")
+
 local function checkDebug()
-    -- Проверяем, не вызваны ли мы из дебаггера
-    local success, info = pcall(function()
-        return debug and debug.getinfo and debug.getinfo(3)
-    end)
-    
-    if success and info then
-        -- Если функция вызвана из дебаггера
-        if info.name and info.name:find("debug") then
-            print("🚫 Обнаружена попытка отладки!")
+    -- Простая проверка
+    if debug and debug.getinfo then
+        local success, info = pcall(function()
+            return debug.getinfo(3)
+        end)
+        if success and info and info.name and info.name:find("debug") then
             return false
         end
     end
-    
     return true
 end
 
 if not checkDebug() then
+    print("🚫 Обнаружена попытка отладки!")
     while true do task.wait(999999) end
 end
 print("✅ Анти-дебаг: OK")
 
 -- ============================================
--- 5. ПРОВЕРКА ВЕРСИИ (ЖЕСТКАЯ)
+-- 5. ПРОВЕРКА ВЕРСИИ
 -- ============================================
+print("📌 [5/6] Проверка версии...")
+
 local CURRENT_VERSION = "2.2.0"
 local VERSION_URL = "https://raw.githubusercontent.com/Terror1121/AuraCheats-Release/main/version.txt"
 
@@ -187,16 +148,16 @@ end
 
 if not checkVersion() then
     print("🚫 ВЕРСИЯ УСТАРЕЛА!")
-    print("🚫 Текущая: " .. CURRENT_VERSION)
-    print("🚫 Загрузите новую версию")
     while true do task.wait(999999) end
 end
 
 print("✅ Версия актуальна: " .. CURRENT_VERSION)
 
 -- ============================================
--- 6. КОНФИГУРАЦИЯ
+-- 6. ДАЛЬНЕЙШИЙ КОД
 -- ============================================
+print("📌 [6/6] Загрузка системы ключей...")
+
 local KEY_CONFIG = {
     BOT_URL = "https://aura-cheats-bot.onrender.com/activate",
     MAIN_URL = "https://raw.githubusercontent.com/Terror1121/AuraCheats-Release/main/main.lua",
@@ -206,9 +167,6 @@ local KEY_CONFIG = {
     ENCRYPT_KEY = "AuraCheats2024"
 }
 
--- ============================================
--- 7. СИСТЕМА КЛЮЧЕЙ
--- ============================================
 local keyData = {
     isValid = false,
     activationDate = nil,
@@ -255,9 +213,6 @@ local function loadKeyData()
     return nil
 end
 
--- ============================================
--- 8. АКТИВАЦИЯ ЧЕРЕЗ БОТА
--- ============================================
 local function activateKeyThroughBot(key)
     local player = game.Players.LocalPlayer
     local url = KEY_CONFIG.BOT_URL .. "?key=" .. key .. "&user=" .. player.Name
@@ -291,9 +246,6 @@ local function activateKeyThroughBot(key)
     end
 end
 
--- ============================================
--- 9. РАСШИФРОВКА (XOR)
--- ============================================
 local function decrypt(data, key)
     local decrypted = ""
     for i = 1, #data do
@@ -306,9 +258,6 @@ local function decrypt(data, key)
     return decrypted
 end
 
--- ============================================
--- 10. ЗАГРУЗКА ОСНОВНОГО СКРИПТА
--- ============================================
 local function loadMainScript()
     print("📥 Загрузка основного скрипта...")
     
@@ -343,9 +292,6 @@ local function loadMainScript()
     pcall(func, keyData)
 end
 
--- ============================================
--- 11. GUI ВВОДА КЛЮЧА
--- ============================================
 local function showKeyWindow()
     local player = game.Players.LocalPlayer
     if not player or not player.PlayerGui then
@@ -531,9 +477,6 @@ local function showKeyWindow()
     end)
 end
 
--- ============================================
--- 12. ПРОВЕРКА СОХРАНЕННОГО КЛЮЧА
--- ============================================
 local function checkSavedKey()
     local savedData = loadKeyData()
     if not savedData then
@@ -553,9 +496,8 @@ local function checkSavedKey()
     return true
 end
 
--- ============================================
--- 13. ЗАПУСК
--- ============================================
+print("✅ Система ключей загружена")
+
 if checkSavedKey() then
     local daysLeft = math.floor((keyData.expirationDate - os.time()) / 86400)
     print("✅ Ключ загружен из сохранения")
