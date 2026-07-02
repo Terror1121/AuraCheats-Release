@@ -144,7 +144,7 @@ end
 -- ============================================
 
 local CURRENT_VERSION = "2.2.0"
-local VERSION_URL = "https://raw.githubusercontent.com/Terror1121/AuraCheats-Release/main/version.txt"
+local VERSION_URL = "https://raw.githubusercontent.com/Terror1121/AuraCheats-Release/refs/heads/main/versions.txt"
 
 local function checkVersion()
     local success, response = pcall(function()
