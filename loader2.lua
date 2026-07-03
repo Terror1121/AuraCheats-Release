@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАЩИЩЕННЫЙ ЗАГРУЗЧИК v2.2.1
--- ИСПРАВЛЕННАЯ АКТИВАЦИЯ (ПЕРЕДАЧА USER_ID)
+-- 🔒 AURA CHEATS - ЗАЩИЩЕННЫЙ ЗАГРУЗЧИК v2.2.2
+-- С ПЕРЕДАЧЕЙ ИНЖЕКТОРА В СТАТИСТИКУ
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v" .. "2.2.1")
+print("🔧 Загрузка AuraCheats v" .. "2.2.2")
 
 -- ============================================
 -- 1. HWID СИСТЕМА (СТАБИЛЬНАЯ)
@@ -331,7 +331,7 @@ print("✅ Анти-дебаг: OK")
 -- ============================================
 -- 6. ПРОВЕРКА ВЕРСИИ (С КЭШИРОВАНИЕМ)
 -- ============================================
-local CURRENT_VERSION = "2.2.1"
+local CURRENT_VERSION = "2.2.2"
 local VERSION_URL = "https://raw.githubusercontent.com/Terror1121/AuraCheats-Release/main/version.txt"
 local VERSION_CACHE = "AuraCheatsVersionCache"
 
@@ -466,7 +466,7 @@ local function loadKeyData()
 end
 
 -- ============================================
--- 9. АКТИВАЦИЯ ЧЕРЕЗ БОТА (ПЕРЕДАЕМ USER_ID!)
+-- 9. АКТИВАЦИЯ ЧЕРЕЗ БОТА (С ПЕРЕДАЧЕЙ ИНЖЕКТОРА!)
 -- ============================================
 local function activateKeyThroughBot(key, retryCount)
     retryCount = retryCount or 0
@@ -478,18 +478,23 @@ local function activateKeyThroughBot(key, retryCount)
     local userId = player.UserId
     local userName = player.Name
     
+    -- 🔥 ПОЛУЧАЕМ ИМЯ ИНЖЕКТОРА
+    local injectorName = getexecutorname and getexecutorname() or "Unknown"
+    
     local url = string.format(
-        "%s?key=%s&user=%s&hwid=%s",
+        "%s?key=%s&user=%s&hwid=%s&injector=%s",
         KEY_CONFIG.BOT_URL,
         key,
         userId,
-        hwid
+        hwid,
+        injectorName  -- 🔥 ДОБАВЛЯЕМ ИНЖЕКТОР!
     )
     
     print("📡 Отправка запроса к боту...")
     print("   HWID: " .. hwid)
     print("   User ID: " .. userId)
     print("   User Name: " .. userName)
+    print("   Injector: " .. injectorName)  -- 🔥 ЛОГИРУЕМ ИНЖЕКТОР
     
     local success, response = pcall(function()
         return game:HttpGet(url)
