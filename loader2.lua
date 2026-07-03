@@ -331,7 +331,7 @@ print("✅ Анти-дебаг: OK")
 -- ============================================
 -- 6. ПРОВЕРКА ВЕРСИИ (С КЭШИРОВАНИЕМ)
 -- ============================================
-local CURRENT_VERSION = "2.2.2"
+local CURRENT_VERSION = "2.2.1"
 local VERSION_URL = "https://raw.githubusercontent.com/Terror1121/AuraCheats-Release/main/version.txt"
 local VERSION_CACHE = "AuraCheatsVersionCache"
 
