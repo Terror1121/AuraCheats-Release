@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАЩИЩЕННЫЙ ЗАГРУЗЧИК v2.2.7
--- С РАСШИФРОВКОЙ ПОД ТВОЙ ШИФРАТОР
+-- 🔒 AURA CHEATS - ЗАЩИЩЕННЫЙ ЗАГРУЗЧИК v2.2.8
+-- С XOR РАСШИФРОВКОЙ (ВЫЧИТАНИЕ)
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v" .. "2.2.7")
+print("🔧 Загрузка AuraCheats v" .. "2.2.8")
 
 -- ============================================
 -- 1. HWID СИСТЕМА (СТАБИЛЬНАЯ)
@@ -226,7 +226,7 @@ print("✅ Анти-дебаг: OK")
 -- ============================================
 -- 6. ПРОВЕРКА ВЕРСИИ (ВСЕГДА С СЕРВЕРА!)
 -- ============================================
-local CURRENT_VERSION = "2.2.7"
+local CURRENT_VERSION = "2.2.8"
 local VERSION_URL = "https://raw.githubusercontent.com/Terror1121/AuraCheats-Release/main/version.txt"
 
 local VERSION_CACHE = "AuraCheatsVersionCache"
@@ -435,7 +435,7 @@ local function checkSavedKey()
 end
 
 -- ============================================
--- 11. 🔥 РАСШИФРОВКА (ТОЧНАЯ КОПИЯ ТВОЕГО ШИФРАТОРА)
+-- 11. 🔥 РАСШИФРОВКА (XOR ВЫЧИТАНИЕ) - ПРАВИЛЬНАЯ!
 -- ============================================
 local function decrypt(data, key)
     local decrypted = ""
@@ -443,10 +443,8 @@ local function decrypt(data, key)
         local char = data:sub(i, i)
         local charCode = string.byte(char)
         local keyCode = string.byte(key:sub((i - 1) % #key + 1, (i - 1) % #key + 1))
-        -- 🔥 ТОЧНО ТАК ЖЕ КАК В ТВОЁМ ШИФРАТОРЕ!
-        -- Ты используешь: code = charCode ~ keyCode (НЕ/Инверсия)
-        -- Чтобы расшифровать, делаем ТО ЖЕ САМОЕ!
-        local code = charCode ~ keyCode
+        -- 🔥 РАСШИФРОВКА: вычитаем ключ
+        local code = (charCode - keyCode) % 256
         decrypted = decrypted .. string.char(code)
     end
     return decrypted
@@ -467,18 +465,25 @@ local function loadMainScript()
         return
     end
     
+    print("📦 Загружено байт: " .. #encryptedContent)
+    
     if #encryptedContent < 100 then
         print("❌ Загруженный файл поврежден")
         return
     end
     
-    -- 🔥 РАСШИФРОВКА (ТОЧНО ТАК ЖЕ КАК ШИФРОВАЛОСЬ)
+    -- 🔥 РАСШИФРОВКА
     local decrypted = decrypt(encryptedContent, KEY_CONFIG.ENCRYPT_KEY)
+    
+    print("📦 Расшифровано байт: " .. #decrypted)
     
     if not decrypted or #decrypted < 100 then
         print("❌ Ошибка расшифровки")
         return
     end
+    
+    -- 🔥 ПРОВЕРКА
+    print("📝 Первые 50 символов: " .. decrypted:sub(1, 50))
     
     local func, err = loadstring(decrypted)
     if not func then
