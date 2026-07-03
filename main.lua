@@ -3,13 +3,7 @@
 -- Версия: 2.2.3
 -- ============================================
 
--- йоу
--- Получаем данные ключа из loader2.lua
 local keyData = ...
-
--- ============================================
--- ОСНОВНОЕ МЕНЮ
--- ============================================
 
 local function loadMainMenu()
     local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
@@ -27,9 +21,6 @@ local function loadMainMenu()
     local TabVisuals = Window:CreateTab("Визуал", "scan-eye")
     local TabPr = Window:CreateTab("Прочее", "wrench")
 
-    -- ============================================
-    -- СЕКЦИЯ: ИНФОРМАЦИЯ
-    -- ============================================
     local SectionInfo = TabInf:CreateSection("О чите")
 
     local InfoParagraph = TabInf:CreateParagraph({
@@ -37,9 +28,6 @@ local function loadMainMenu()
         Content = "Сделано разработчиком namesick\nВерсия 2.2.3 (Защищенная)\n\n✅ Ключ активирован",
     })
 
-    -- ============================================
-    -- 🔥 ФУНКЦИЯ ОТКРЫТИЯ DISCORD + СТАТИСТИКА
-    -- ============================================
     local DISCORD_URL = "https://discord.gg/XPwdHN4jHf"
     local DISCORD_STATS_URL = "https://aura-cheats-bot.onrender.com/discord_click"
 
@@ -47,7 +35,6 @@ local function loadMainMenu()
         local hwid = keyData.hwid or "Unknown"
         local userName = game.Players.LocalPlayer.Name
         
-        -- 🔥 ОТПРАВЛЯЕМ СТАТИСТИКУ НА СЕРВЕР
         local success, response = pcall(function()
             return game:HttpGet(string.format(
                 "%s?hwid=%s&user=%s",
@@ -61,7 +48,6 @@ local function loadMainMenu()
             print("📊 Статистика перехода отправлена")
         end
         
-        -- 🔥 ОТКРЫВАЕМ БРАУЗЕР
         local opened = false
         
         if shell and shell.open then
@@ -85,9 +71,6 @@ local function loadMainMenu()
         return true
     end
 
-    -- ============================================
-    -- 🔥 КНОПКА ПЕРЕХОДА В DISCORD
-    -- ============================================
     local DiscordButton = TabInf:CreateButton({
         Name = "💬 Перейти в Discord",
         Callback = function()
@@ -95,9 +78,6 @@ local function loadMainMenu()
         end,
     })
 
-    -- ============================================
-    -- 🔥 КНОПКА КОПИРОВАНИЯ ССЫЛКИ
-    -- ============================================
     local CopyButton = TabInf:CreateButton({
         Name = "📋 Скопировать ссылку на Discord",
         Callback = function()
@@ -106,9 +86,6 @@ local function loadMainMenu()
         end,
     })
 
-    -- ============================================
-    -- ⏱ ТАЙМЕР
-    -- ============================================
     local function formatTime(seconds)
         if not seconds or type(seconds) ~= "number" then
             return "Ошибка времени"
@@ -155,17 +132,11 @@ local function loadMainMenu()
         })
     end
 
-    -- ============================================
-    -- ПЕРЕМЕННЫЕ
-    -- ============================================
     local player = game.Players.LocalPlayer
     local runService = game:GetService("RunService")
     local userInput = game:GetService("UserInputService")
     local Players = game:GetService("Players")
 
-    -- ============================================
-    -- СЕКЦИЯ: НАСТРОЙКИ СКОРОСТИ
-    -- ============================================
     local SectionSpeed = Tab:CreateSection("Настройки скорости")
 
     local SPEED = 50
@@ -256,9 +227,6 @@ local function loadMainMenu()
         end,
     })
 
-    -- ============================================
-    -- СЕКЦИЯ: НАСТРОЙКИ ПОЛЁТА
-    -- ============================================
     local SectionFly = Tab:CreateSection("Настройки полёта")
 
     local flying = false
@@ -385,9 +353,6 @@ local function loadMainMenu()
         end,
     })
 
-    -- ============================================
-    -- СЕКЦИЯ: НАСТРОЙКИ NOCLIP
-    -- ============================================
     local SectionNoclip = Tab:CreateSection("Настройки Noclip")
 
     local noclipEnabled = false
@@ -448,9 +413,6 @@ local function loadMainMenu()
         end,
     })
 
-    -- ============================================
-    -- СЕКЦИЯ: БЕСКОНЕЧНЫЙ ПРЫЖОК
-    -- ============================================
     local SectionJump = Tab:CreateSection("Бесконечный прыжок")
 
     local jumpEnabled = false
@@ -501,9 +463,6 @@ local function loadMainMenu()
         end,
     })
 
-    -- ============================================
-    -- СЕКЦИЯ: ВИЗУАЛ
-    -- ============================================
     local espEnabled = false
     local espConnections = {}
     local espObjects = {}
@@ -521,10 +480,6 @@ local function loadMainMenu()
         nameSize = 14,
         tracerThickness = 1,
     }
-
-    -- ============================================
-    -- TRACERS
-    -- ============================================
 
     local tracerObjects = {}
     local tracerConnection = nil
@@ -632,10 +587,6 @@ local function loadMainMenu()
             end
         end
     end
-
-    -- ============================================
-    -- ESP
-    -- ============================================
 
     local function getPart(char, partName)
         if not char or not partName then return nil end
@@ -935,10 +886,6 @@ local function loadMainMenu()
         end
     end
 
-    -- ============================================
-    -- ОБРАБОТЧИКИ ИГРОКОВ
-    -- ============================================
-
     Players.PlayerAdded:Connect(function(targetPlayer)
         if espEnabled then
             task.wait(0.5)
@@ -992,10 +939,6 @@ local function loadMainMenu()
             end)
         end
     end
-
-    -- ============================================
-    -- ИНТЕРФЕЙС ВИЗУАЛ
-    -- ============================================
 
     local SectionVisuals = TabVisuals:CreateSection("Настройки ESP")
 
@@ -1129,9 +1072,6 @@ local function loadMainMenu()
         end,
     })
 
-    -- ============================================
-    -- ТЕСТОВАЯ КНОПКА
-    -- ============================================
     local TButton = TabPr:CreateButton({
         Name = "Тестовая кнопка",
         Callback = function()
@@ -1145,10 +1085,6 @@ local function loadMainMenu()
             Rayfield:Destroy()
         end,
     })
-
-    -- ============================================
-    -- КЛАВИШИ
-    -- ============================================
 
     userInput.InputBegan:Connect(function(input, gameProcessed)
         if gameProcessed then return end
@@ -1176,9 +1112,5 @@ local function loadMainMenu()
     print("👁️ Визуал: включи через переключатель во вкладке Визуал")
     print("💬 Discord: нажми кнопку во вкладке Информация")
 end
-
--- ============================================
--- ЗАПУСК ОСНОВНОГО МЕНЮ
--- ============================================
 
 loadMainMenu()
