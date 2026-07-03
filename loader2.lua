@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАЩИЩЕННЫЙ ЗАГРУЗЧИК v2.2.3
--- ВСЕГДА ПРОВЕРЯЕТ ВЕРСИЮ С СЕРВЕРА!
+-- 🔒 AURA CHEATS - ЗАЩИЩЕННЫЙ ЗАГРУЗЧИК v2.2.4
+-- С ПОДДЕРЖКОЙ ЗАШИФРОВАННЫХ СКРИПТОВ (ОБЁРТКА)
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v" .. "2.2.3")
+print("🔧 Загрузка AuraCheats v" .. "2.2.4")
 
 -- ============================================
 -- 1. HWID СИСТЕМА (СТАБИЛЬНАЯ)
@@ -331,10 +331,10 @@ print("✅ Анти-дебаг: OK")
 -- ============================================
 -- 6. ПРОВЕРКА ВЕРСИИ (ВСЕГДА С СЕРВЕРА!)
 -- ============================================
-local CURRENT_VERSION = "2.2.3"
+local CURRENT_VERSION = "2.2.4"
 local VERSION_URL = "https://raw.githubusercontent.com/Terror1121/AuraCheats-Release/main/version.txt"
 
--- 🔥 УДАЛЯЕМ СТАРЫЙ КЭШ ПРИ ЗАПУСКЕ (ЧТОБЫ НЕ МЕШАЛ)
+-- 🔥 УДАЛЯЕМ СТАРЫЙ КЭШ ПРИ ЗАПУСКЕ
 local VERSION_CACHE = "AuraCheatsVersionCache"
 if isfile(VERSION_CACHE) then
     delfile(VERSION_CACHE)
@@ -344,7 +344,6 @@ end
 local function checkVersion()
     print("📡 Проверка версии с сервера...")
     
-    -- ВСЕГДА КАЧАЕМ СВЕЖУЮ ВЕРСИЮ
     local success, response = pcall(function()
         return game:HttpGet(VERSION_URL)
     end)
@@ -358,7 +357,6 @@ local function checkVersion()
     print("   📥 Серверная версия: " .. latestVersion)
     print("   💻 Локальная версия: " .. CURRENT_VERSION)
     
-    -- СРАВНИВАЕМ
     local function splitVersion(v)
         local parts = {}
         for part in v:gmatch("[^.]+") do
@@ -463,11 +461,8 @@ local function activateKeyThroughBot(key, retryCount)
     local player = game.Players.LocalPlayer
     local hwid = getCachedHwid()
     
-    -- ПЕРЕДАЕМ USER_ID (число), а не имя!
     local userId = player.UserId
     local userName = player.Name
-    
-    -- 🔥 ПОЛУЧАЕМ ИМЯ ИНЖЕКТОРА
     local injectorName = getexecutorname and getexecutorname() or "Unknown"
     
     local url = string.format(
@@ -537,7 +532,6 @@ local function checkSavedKey()
         return false
     end
     
-    -- ЖЕСТКАЯ ПРОВЕРКА HWID
     if savedData.hwid then
         local currentHwid = getCachedHwid()
         if savedData.hwid ~= currentHwid then
@@ -584,7 +578,7 @@ local function decrypt(data, key)
 end
 
 -- ============================================
--- 12. ЗАГРУЗКА ОСНОВНОГО СКРИПТА
+-- 12. ЗАГРУЗКА ОСНОВНОГО СКРИПТА (С ОБЁРТКОЙ!)
 -- ============================================
 local function loadMainScript()
     print("📥 Загрузка основного скрипта...")
@@ -603,6 +597,7 @@ local function loadMainScript()
         return
     end
     
+    -- 🔥 РАСШИФРОВЫВАЕМ
     local decrypted = decrypt(encryptedContent, KEY_CONFIG.ENCRYPT_KEY)
     
     if not decrypted or #decrypted < 100 then
@@ -610,6 +605,7 @@ local function loadMainScript()
         return
     end
     
+    -- 🔥 ЗАГРУЖАЕМ ЧЕРЕЗ ОБЁРТКУ (БЕЗОПАСНО!)
     local func, err = loadstring(decrypted)
     if not func then
         print("❌ Ошибка компиляции: " .. (err or "неизвестно"))
