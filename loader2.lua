@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАЩИЩЕННЫЙ ЗАГРУЗЧИК v2.2.2
--- С ПЕРЕДАЧЕЙ ИНЖЕКТОРА В СТАТИСТИКУ
+-- 🔒 AURA CHEATS - ЗАЩИЩЕННЫЙ ЗАГРУЗЧИК v2.2.3
+-- ВСЕГДА ПРОВЕРЯЕТ ВЕРСИЮ С СЕРВЕРА!
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v" .. "2.2.1")
+print("🔧 Загрузка AuraCheats v" .. "2.2.3")
 
 -- ============================================
 -- 1. HWID СИСТЕМА (СТАБИЛЬНАЯ)
@@ -329,48 +329,36 @@ end
 print("✅ Анти-дебаг: OK")
 
 -- ============================================
--- 6. ПРОВЕРКА ВЕРСИИ (С КЭШИРОВАНИЕМ)
+-- 6. ПРОВЕРКА ВЕРСИИ (ВСЕГДА С СЕРВЕРА!)
 -- ============================================
-local CURRENT_VERSION = "2.2.1"
+local CURRENT_VERSION = "2.2.3"
 local VERSION_URL = "https://raw.githubusercontent.com/Terror1121/AuraCheats-Release/main/version.txt"
+
+-- 🔥 УДАЛЯЕМ СТАРЫЙ КЭШ ПРИ ЗАПУСКЕ (ЧТОБЫ НЕ МЕШАЛ)
 local VERSION_CACHE = "AuraCheatsVersionCache"
-
-local function getCachedVersion()
-    if isfile(VERSION_CACHE) then
-        local success, data = pcall(function()
-            return readfile(VERSION_CACHE)
-        end)
-        if success and data then
-            return data:gsub("%s+", "")
-        end
-    end
-    return nil
-end
-
-local function saveVersionCache(version)
-    pcall(function()
-        writefile(VERSION_CACHE, version)
-    end)
+if isfile(VERSION_CACHE) then
+    delfile(VERSION_CACHE)
+    print("🗑️ Старый кэш версии удален")
 end
 
 local function checkVersion()
-    local latestVersion = getCachedVersion()
+    print("📡 Проверка версии с сервера...")
     
-    if not latestVersion then
-        local success, response = pcall(function()
-            return game:HttpGet(VERSION_URL)
-        end)
-        if success and response then
-            latestVersion = response:gsub("%s+", "")
-            saveVersionCache(latestVersion)
-        end
-    end
+    -- ВСЕГДА КАЧАЕМ СВЕЖУЮ ВЕРСИЮ
+    local success, response = pcall(function()
+        return game:HttpGet(VERSION_URL)
+    end)
     
-    if not latestVersion then
-        print("⚠️ Не удалось проверить версию")
+    if not success or not response then
+        print("⚠️ Не удалось проверить версию. Пропускаем проверку.")
         return true
     end
     
+    local latestVersion = response:gsub("%s+", "")
+    print("   📥 Серверная версия: " .. latestVersion)
+    print("   💻 Локальная версия: " .. CURRENT_VERSION)
+    
+    -- СРАВНИВАЕМ
     local function splitVersion(v)
         local parts = {}
         for part in v:gmatch("[^.]+") do
@@ -395,6 +383,7 @@ end
 
 if not checkVersion() then
     print("🚫 ВЕРСИЯ УСТАРЕЛА!")
+    print("   Обновите чит! Скачайте новую версию.")
     while true do task.wait(999999) end
 end
 
@@ -487,14 +476,14 @@ local function activateKeyThroughBot(key, retryCount)
         key,
         userId,
         hwid,
-        injectorName  -- 🔥 ДОБАВЛЯЕМ ИНЖЕКТОР!
+        injectorName
     )
     
     print("📡 Отправка запроса к боту...")
     print("   HWID: " .. hwid)
     print("   User ID: " .. userId)
     print("   User Name: " .. userName)
-    print("   Injector: " .. injectorName)  -- 🔥 ЛОГИРУЕМ ИНЖЕКТОР
+    print("   Injector: " .. injectorName)
     
     local success, response = pcall(function()
         return game:HttpGet(url)
