@@ -1,6 +1,6 @@
 -- ============================================
 -- 🔒 AURA CHEATS - ЗАЩИЩЕННЫЙ ЗАГРУЗЧИК v2.2.9
--- С КРЕСТИКОМ В ОКНЕ АКТИВАЦИИ
+-- С КРУГЛОЙ КНОПКОЙ ЗАКРЫТИЯ
 -- ============================================
 
 print("🔧 Загрузка AuraCheats v" .. "2.2.9")
@@ -435,7 +435,7 @@ local function checkSavedKey()
 end
 
 -- ============================================
--- 11. 🔥 РАСШИФРОВКА (XOR ВЫЧИТАНИЕ)
+-- 11. РАСШИФРОВКА (XOR ВЫЧИТАНИЕ)
 -- ============================================
 local function decrypt(data, key)
     local decrypted = ""
@@ -493,7 +493,7 @@ local function loadMainScript()
 end
 
 -- ============================================
--- 13. GUI ВВОДА КЛЮЧА (С КРЕСТИКОМ!)
+-- 13. GUI ВВОДА КЛЮЧА (С КРУГЛОЙ КНОПКОЙ ЗАКРЫТИЯ!)
 -- ============================================
 local function showKeyWindow()
     local player = game.Players.LocalPlayer
@@ -527,18 +527,14 @@ local function showKeyWindow()
     corner.Parent = mainFrame
     
     -- ============================================
-    -- 🔥 КРЕСТИК (КНОПКА ЗАКРЫТИЯ)
+    -- 🔥 КРУГЛАЯ КНОПКА ЗАКРЫТИЯ
     -- ============================================
-    local closeButton = Instance.new("TextButton")
-    closeButton.Size = UDim2.new(0, 36, 0, 36)
-    closeButton.Position = UDim2.new(1, -44, 0, 8)
-    closeButton.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-    closeButton.BackgroundTransparency = 0.5
-    closeButton.Text = "✕"
-    closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    closeButton.TextSize = 20
-    closeButton.TextScaled = true
-    closeButton.Font = Enum.Font.GothamBold
+    local closeButton = Instance.new("ImageButton")
+    closeButton.Size = UDim2.new(0, 32, 0, 32)
+    closeButton.Position = UDim2.new(1, -40, 0, 10)
+    closeButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+    closeButton.BackgroundTransparency = 0.7
+    closeButton.Image = "rbxassetid://0"
     closeButton.BorderSizePixel = 0
     closeButton.Parent = mainFrame
     
@@ -546,13 +542,21 @@ local function showKeyWindow()
     closeCorner.CornerRadius = UDim.new(1, 0)
     closeCorner.Parent = closeButton
     
+    local closeText = Instance.new("TextLabel")
+    closeText.Size = UDim2.new(1, 0, 1, 0)
+    closeText.BackgroundTransparency = 1
+    closeText.Text = "✕"
+    closeText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeText.TextSize = 20
+    closeText.TextScaled = true
+    closeText.Font = Enum.Font.GothamBold
+    closeText.Parent = closeButton
+    
     closeButton.MouseEnter:Connect(function()
-        closeButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
-        closeButton.BackgroundTransparency = 0.2
+        closeButton.BackgroundTransparency = 0.3
     end)
     closeButton.MouseLeave:Connect(function()
-        closeButton.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-        closeButton.BackgroundTransparency = 0.5
+        closeButton.BackgroundTransparency = 0.7
     end)
     
     closeButton.MouseButton1Click:Connect(function()
@@ -561,7 +565,7 @@ local function showKeyWindow()
     end)
     
     -- ============================================
-    -- ОСТАЛЬНЫЕ ЭЛЕМЕНТЫ
+    -- ОСТАЛЬНЫЕ ЭЛЕМЕНТЫ ИНТЕРФЕЙСА
     -- ============================================
     
     local icon = Instance.new("TextLabel")
