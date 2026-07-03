@@ -1,93 +1,41 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАЩИЩЕННЫЙ ЗАГРУЗЧИК v2.2.4
--- С ПОДДЕРЖКОЙ ЗАШИФРОВАННЫХ СКРИПТОВ (ОБЁРТКА)
+-- 🔒 AURA CHEATS - ЗАЩИЩЕННЫЙ ЗАГРУЗЧИК v2.2.7
+-- С РАСШИФРОВКОЙ ПОД ТВОЙ ШИФРАТОР
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v" .. "2.2.4")
+print("🔧 Загрузка AuraCheats v" .. "2.2.7")
 
 -- ============================================
 -- 1. HWID СИСТЕМА (СТАБИЛЬНАЯ)
 -- ============================================
 
--- УРОВЕНЬ 1: Базовый HWID (постоянный)
 local function getBaseHwid()
     local components = {}
-    
-    -- 1. ПЫТАЕМСЯ ПОЛУЧИТЬ HWID ЧЕРЕЗ ИНЖЕКТОР
     local success, result = pcall(function()
-        -- CPU ID
-        if syn and syn.cpu_id then
-            table.insert(components, syn.cpu_id())
-        end
-        
-        -- Motherboard ID
-        if syn and syn.motherboard_id then
-            table.insert(components, syn.motherboard_id())
-        end
-        
-        -- BIOS ID
-        if syn and syn.bios_id then
-            table.insert(components, syn.bios_id())
-        end
-        
-        -- Windows Product ID
-        if syn and syn.windows_product_id then
-            table.insert(components, syn.windows_product_id())
-        end
-        
-        -- Machine GUID
-        if syn and syn.machine_guid then
-            table.insert(components, syn.machine_guid())
-        end
-        
-        -- User SID
-        if syn and syn.user_sid then
-            table.insert(components, syn.user_sid())
-        end
-        
-        -- Volume Serial Number
-        if syn and syn.volume_serial then
-            table.insert(components, syn.volume_serial())
-        end
-        
-        -- MAC Address
-        if syn and syn.mac_address then
-            table.insert(components, syn.mac_address())
-        end
+        if syn and syn.cpu_id then table.insert(components, syn.cpu_id()) end
+        if syn and syn.motherboard_id then table.insert(components, syn.motherboard_id()) end
+        if syn and syn.bios_id then table.insert(components, syn.bios_id()) end
+        if syn and syn.windows_product_id then table.insert(components, syn.windows_product_id()) end
+        if syn and syn.machine_guid then table.insert(components, syn.machine_guid()) end
+        if syn and syn.user_sid then table.insert(components, syn.user_sid()) end
+        if syn and syn.volume_serial then table.insert(components, syn.volume_serial()) end
+        if syn and syn.mac_address then table.insert(components, syn.mac_address()) end
     end)
     
-    -- 2. ЕСЛИ syn НЕ ДОСТУПЕН - ИСПОЛЬЗУЕМ СТАБИЛЬНЫЕ ДАННЫЕ
     if #components == 0 then
-        -- Используем UserId (постоянный)
         local player = game.Players.LocalPlayer
-        if player then
-            table.insert(components, tostring(player.UserId))
-        end
-        
-        -- Используем информацию о системе (через pcall)
+        if player then table.insert(components, tostring(player.UserId)) end
         local success2, result2 = pcall(function()
-            -- Получаем информацию о графике (стабильно)
             local graphics = settings().Rendering.QualityLevel
             table.insert(components, tostring(graphics))
-            
-            -- Получаем информацию о звуке (стабильно)
             local audio = settings().Sound.Volume
             table.insert(components, tostring(audio))
         end)
-        
-        -- Добавляем стабильные идентификаторы Roblox
         local success3, result3 = pcall(function()
-            if game and game.GameId then
-                table.insert(components, tostring(game.GameId))
-            end
-            if game and game.PlaceId then
-                table.insert(components, tostring(game.PlaceId))
-            end
+            if game and game.GameId then table.insert(components, tostring(game.GameId)) end
+            if game and game.PlaceId then table.insert(components, tostring(game.PlaceId)) end
         end)
-        
-        -- Добавляем базовую информацию о системе
         local success4, result4 = pcall(function()
-            -- Разрешение экрана (стабильно)
             if workspace and workspace.CurrentCamera then
                 local viewport = workspace.CurrentCamera.ViewportSize
                 table.insert(components, tostring(viewport.X) .. "x" .. tostring(viewport.Y))
@@ -95,35 +43,25 @@ local function getBaseHwid()
         end)
     end
     
-    -- 3. КОМБИНИРУЕМ ВСЕ В СТРОКУ
     local combined = table.concat(components, "|")
-    
-    -- 4. ХЕШИРУЕМ (ВСЕГДА ОДИНАКОВО)
     local hash = 0
     for i = 1, #combined do
         hash = (hash * 31 + string.byte(combined, i)) % 2^32
     end
-    
     return string.format("%08X", hash)
 end
 
--- УРОВЕНЬ 2: Контрольные суммы системных файлов (стабильные)
 local function getSystemChecksum()
     local checksums = {}
-    
-    -- Список системных файлов для проверки
     local systemFiles = {
         "C:\\Windows\\System32\\kernel32.dll",
         "C:\\Windows\\System32\\user32.dll",
         "C:\\Windows\\System32\\ntdll.dll",
         "C:\\Windows\\System32\\msvcrt.dll",
     }
-    
     for _, file in ipairs(systemFiles) do
         if isfile(file) then
-            local success, content = pcall(function()
-                return readfile(file)
-            end)
+            local success, content = pcall(function() return readfile(file) end)
             if success and content then
                 local hash = 0
                 for i = 1, math.min(#content, 500) do
@@ -133,93 +71,50 @@ local function getSystemChecksum()
             end
         end
     end
-    
-    -- Если не удалось прочитать файлы - используем альтернативу
     if #checksums == 0 then
         table.insert(checksums, "DEFAULT_CHECKSUM")
     end
-    
     return table.concat(checksums, "|")
 end
 
--- УРОВЕНЬ 3: Поведенческие данные (стабильные)
 local function getBehavioralData()
     local data = {}
-    
-    -- Разрешение экрана (меняется редко)
     local success, result = pcall(function()
         if workspace and workspace.CurrentCamera then
             local viewport = workspace.CurrentCamera.ViewportSize
             data.screenSize = tostring(viewport.X) .. "x" .. tostring(viewport.Y)
         end
     end)
-    if not data.screenSize then
-        data.screenSize = "1920x1080"
-    end
-    
-    -- Язык системы (стабильный)
+    if not data.screenSize then data.screenSize = "1920x1080" end
     local success2, result2 = pcall(function()
-        if syn and syn.system_language then
-            data.systemLang = syn.system_language()
-        end
+        if syn and syn.system_language then data.systemLang = syn.system_language() end
     end)
-    if not data.systemLang then
-        data.systemLang = "en-US"
-    end
-    
-    -- Версия Windows (стабильная)
+    if not data.systemLang then data.systemLang = "en-US" end
     local success3, result3 = pcall(function()
-        if syn and syn.windows_version then
-            data.winVer = syn.windows_version()
-        end
+        if syn and syn.windows_version then data.winVer = syn.windows_version() end
     end)
-    if not data.winVer then
-        data.winVer = "Windows_Unknown"
-    end
-    
+    if not data.winVer then data.winVer = "Windows_Unknown" end
     return data
 end
 
--- ФИНАЛЬНАЯ HWID ФУНКЦИЯ (СТАБИЛЬНАЯ)
 local function getFullHardwareId()
-    -- 1. Базовый HWID
     local baseHwid = getBaseHwid()
-    
-    -- 2. Системная контрольная сумма
     local sysChecksum = getSystemChecksum()
-    
-    -- 3. Поведенческие данные
     local behavior = getBehavioralData()
-    
-    -- 4. Комбинируем все в один уникальный идентификатор
-    local combined = string.format(
-        "%s|%s|%s|%s",
-        baseHwid,
-        sysChecksum,
-        behavior.screenSize,
-        behavior.winVer
-    )
-    
-    -- 5. Финальный хеш
+    local combined = string.format("%s|%s|%s|%s", baseHwid, sysChecksum, behavior.screenSize, behavior.winVer)
     local finalHash = 0
     for i = 1, #combined do
         finalHash = (finalHash * 31 + string.byte(combined, i)) % 2^32
     end
-    
-    -- 6. Добавляем соль
     local salt = "AuraCheats2024_HWID_ULTRA_SECURE_@#!$%"
     local salted = tostring(finalHash) .. salt
-    
-    -- 7. Финальный хеш с солью
     local finalHash2 = 0
     for i = 1, #salted do
         finalHash2 = (finalHash2 * 31 + string.byte(salted, i)) % 2^32
     end
-    
     return string.format("%08X", finalHash2)
 end
 
--- Кэшируем HWID (чтобы не вычислять каждый раз)
 local CACHED_HWID = nil
 local function getCachedHwid()
     if not CACHED_HWID then
@@ -331,10 +226,9 @@ print("✅ Анти-дебаг: OK")
 -- ============================================
 -- 6. ПРОВЕРКА ВЕРСИИ (ВСЕГДА С СЕРВЕРА!)
 -- ============================================
-local CURRENT_VERSION = "2.2.4"
+local CURRENT_VERSION = "2.2.7"
 local VERSION_URL = "https://raw.githubusercontent.com/Terror1121/AuraCheats-Release/main/version.txt"
 
--- 🔥 УДАЛЯЕМ СТАРЫЙ КЭШ ПРИ ЗАПУСКЕ
 local VERSION_CACHE = "AuraCheatsVersionCache"
 if isfile(VERSION_CACHE) then
     delfile(VERSION_CACHE)
@@ -343,20 +237,16 @@ end
 
 local function checkVersion()
     print("📡 Проверка версии с сервера...")
-    
     local success, response = pcall(function()
         return game:HttpGet(VERSION_URL)
     end)
-    
     if not success or not response then
         print("⚠️ Не удалось проверить версию. Пропускаем проверку.")
         return true
     end
-    
     local latestVersion = response:gsub("%s+", "")
     print("   📥 Серверная версия: " .. latestVersion)
     print("   💻 Локальная версия: " .. CURRENT_VERSION)
-    
     local function splitVersion(v)
         local parts = {}
         for part in v:gmatch("[^.]+") do
@@ -364,10 +254,8 @@ local function checkVersion()
         end
         return parts
     end
-    
     local current = splitVersion(CURRENT_VERSION)
     local latest = splitVersion(latestVersion)
-    
     for i = 1, math.max(#current, #latest) do
         local c = current[i] or 0
         local l = latest[i] or 0
@@ -375,7 +263,6 @@ local function checkVersion()
             return c > l
         end
     end
-    
     return true
 end
 
@@ -429,7 +316,6 @@ end
 
 local function saveKeyData(data)
     data.hwid = getCachedHwid()
-    
     local success, json = pcall(function()
         return game:GetService("HttpService"):JSONEncode(data)
     end)
@@ -457,14 +343,11 @@ end
 -- ============================================
 local function activateKeyThroughBot(key, retryCount)
     retryCount = retryCount or 0
-    
     local player = game.Players.LocalPlayer
     local hwid = getCachedHwid()
-    
     local userId = player.UserId
     local userName = player.Name
     local injectorName = getexecutorname and getexecutorname() or "Unknown"
-    
     local url = string.format(
         "%s?key=%s&user=%s&hwid=%s&injector=%s",
         KEY_CONFIG.BOT_URL,
@@ -473,17 +356,14 @@ local function activateKeyThroughBot(key, retryCount)
         hwid,
         injectorName
     )
-    
     print("📡 Отправка запроса к боту...")
     print("   HWID: " .. hwid)
     print("   User ID: " .. userId)
     print("   User Name: " .. userName)
     print("   Injector: " .. injectorName)
-    
     local success, response = pcall(function()
         return game:HttpGet(url)
     end)
-    
     if not success then
         if retryCount < 3 then
             print("⚠️ Ошибка подключения, повтор через " .. KEY_CONFIG.RETRY_DELAY .. " сек...")
@@ -492,11 +372,8 @@ local function activateKeyThroughBot(key, retryCount)
         end
         return false, nil, nil, "❌ Ошибка подключения к серверу"
     end
-    
     print("📥 Ответ от бота: " .. response)
-    
     local data = game:GetService("HttpService"):JSONDecode(response)
-    
     if data.status == "success" then
         local expTime = parseDate(data.expires)
         if expTime then
@@ -527,11 +404,9 @@ local function checkSavedKey()
     if not savedData then
         return false
     end
-    
     if not savedData.key or not savedData.expirationDate then
         return false
     end
-    
     if savedData.hwid then
         local currentHwid = getCachedHwid()
         if savedData.hwid ~= currentHwid then
@@ -547,38 +422,38 @@ local function checkSavedKey()
         savedData.hwid = getCachedHwid()
         saveKeyData(savedData)
     end
-    
     if os.time() >= savedData.expirationDate then
         print("⚠️ Срок действия ключа истек")
         return false
     end
-    
     keyData.isValid = true
     keyData.key = savedData.key
     keyData.activationDate = savedData.activationDate
     keyData.expirationDate = savedData.expirationDate
     keyData.hwid = savedData.hwid
-    
     return true
 end
 
 -- ============================================
--- 11. РАСШИФРОВКА (XOR)
+-- 11. 🔥 РАСШИФРОВКА (ТОЧНАЯ КОПИЯ ТВОЕГО ШИФРАТОРА)
 -- ============================================
 local function decrypt(data, key)
     local decrypted = ""
     for i = 1, #data do
         local char = data:sub(i, i)
         local charCode = string.byte(char)
-        local keyCode = string.byte(key:sub((i-1) % #key + 1, (i-1) % #key + 1))
-        local code = (charCode - keyCode) % 256
+        local keyCode = string.byte(key:sub((i - 1) % #key + 1, (i - 1) % #key + 1))
+        -- 🔥 ТОЧНО ТАК ЖЕ КАК В ТВОЁМ ШИФРАТОРЕ!
+        -- Ты используешь: code = charCode ~ keyCode (НЕ/Инверсия)
+        -- Чтобы расшифровать, делаем ТО ЖЕ САМОЕ!
+        local code = charCode ~ keyCode
         decrypted = decrypted .. string.char(code)
     end
     return decrypted
 end
 
 -- ============================================
--- 12. ЗАГРУЗКА ОСНОВНОГО СКРИПТА (С ОБЁРТКОЙ!)
+-- 12. ЗАГРУЗКА ОСНОВНОГО СКРИПТА
 -- ============================================
 local function loadMainScript()
     print("📥 Загрузка основного скрипта...")
@@ -597,7 +472,7 @@ local function loadMainScript()
         return
     end
     
-    -- 🔥 РАСШИФРОВЫВАЕМ
+    -- 🔥 РАСШИФРОВКА (ТОЧНО ТАК ЖЕ КАК ШИФРОВАЛОСЬ)
     local decrypted = decrypt(encryptedContent, KEY_CONFIG.ENCRYPT_KEY)
     
     if not decrypted or #decrypted < 100 then
@@ -605,7 +480,6 @@ local function loadMainScript()
         return
     end
     
-    -- 🔥 ЗАГРУЖАЕМ ЧЕРЕЗ ОБЁРТКУ (БЕЗОПАСНО!)
     local func, err = loadstring(decrypted)
     if not func then
         print("❌ Ошибка компиляции: " .. (err or "неизвестно"))
@@ -617,7 +491,7 @@ local function loadMainScript()
 end
 
 -- ============================================
--- 13. GUI ВВОДА КЛЮЧА
+-- 13. GUI ВВОДА КЛЮЧА (СОКРАЩЕННАЯ ВЕРСИЯ)
 -- ============================================
 local function showKeyWindow()
     local player = game.Players.LocalPlayer
