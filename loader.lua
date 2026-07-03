@@ -1,6 +1,6 @@
 local CONFIG = {
     LOADER_URL = "https://raw.githubusercontent.com/Terror1121/AuraCheats-Release/main/loader2.lua",
-    VERSION = "2.2.7"
+    VERSION = "2.2.9"
 }
 local function checkEnvironment()
     if not game or not game:GetService("RunService") then return false end
