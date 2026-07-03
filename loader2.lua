@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАЩИЩЕННЫЙ ЗАГРУЗЧИК v2.2.8
--- С XOR РАСШИФРОВКОЙ (ВЫЧИТАНИЕ)
+-- 🔒 AURA CHEATS - ЗАЩИЩЕННЫЙ ЗАГРУЗЧИК v2.2.9
+-- С КРЕСТИКОМ В ОКНЕ АКТИВАЦИИ
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v" .. "2.2.8")
+print("🔧 Загрузка AuraCheats v" .. "2.2.9")
 
 -- ============================================
 -- 1. HWID СИСТЕМА (СТАБИЛЬНАЯ)
@@ -226,7 +226,7 @@ print("✅ Анти-дебаг: OK")
 -- ============================================
 -- 6. ПРОВЕРКА ВЕРСИИ (ВСЕГДА С СЕРВЕРА!)
 -- ============================================
-local CURRENT_VERSION = "2.2.8"
+local CURRENT_VERSION = "2.2.9"
 local VERSION_URL = "https://raw.githubusercontent.com/Terror1121/AuraCheats-Release/main/version.txt"
 
 local VERSION_CACHE = "AuraCheatsVersionCache"
@@ -435,7 +435,7 @@ local function checkSavedKey()
 end
 
 -- ============================================
--- 11. 🔥 РАСШИФРОВКА (XOR ВЫЧИТАНИЕ) - ПРАВИЛЬНАЯ!
+-- 11. 🔥 РАСШИФРОВКА (XOR ВЫЧИТАНИЕ)
 -- ============================================
 local function decrypt(data, key)
     local decrypted = ""
@@ -443,7 +443,6 @@ local function decrypt(data, key)
         local char = data:sub(i, i)
         local charCode = string.byte(char)
         local keyCode = string.byte(key:sub((i - 1) % #key + 1, (i - 1) % #key + 1))
-        -- 🔥 РАСШИФРОВКА: вычитаем ключ
         local code = (charCode - keyCode) % 256
         decrypted = decrypted .. string.char(code)
     end
@@ -472,7 +471,6 @@ local function loadMainScript()
         return
     end
     
-    -- 🔥 РАСШИФРОВКА
     local decrypted = decrypt(encryptedContent, KEY_CONFIG.ENCRYPT_KEY)
     
     print("📦 Расшифровано байт: " .. #decrypted)
@@ -482,7 +480,6 @@ local function loadMainScript()
         return
     end
     
-    -- 🔥 ПРОВЕРКА
     print("📝 Первые 50 символов: " .. decrypted:sub(1, 50))
     
     local func, err = loadstring(decrypted)
@@ -496,7 +493,7 @@ local function loadMainScript()
 end
 
 -- ============================================
--- 13. GUI ВВОДА КЛЮЧА (СОКРАЩЕННАЯ ВЕРСИЯ)
+-- 13. GUI ВВОДА КЛЮЧА (С КРЕСТИКОМ!)
 -- ============================================
 local function showKeyWindow()
     local player = game.Players.LocalPlayer
@@ -509,6 +506,7 @@ local function showKeyWindow()
     screenGui.Name = "AuraKeySystem"
     screenGui.Parent = player.PlayerGui
     screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     
     local overlay = Instance.new("Frame")
     overlay.Size = UDim2.new(1, 0, 1, 0)
@@ -527,6 +525,44 @@ local function showKeyWindow()
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 12)
     corner.Parent = mainFrame
+    
+    -- ============================================
+    -- 🔥 КРЕСТИК (КНОПКА ЗАКРЫТИЯ)
+    -- ============================================
+    local closeButton = Instance.new("TextButton")
+    closeButton.Size = UDim2.new(0, 36, 0, 36)
+    closeButton.Position = UDim2.new(1, -44, 0, 8)
+    closeButton.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+    closeButton.BackgroundTransparency = 0.5
+    closeButton.Text = "✕"
+    closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeButton.TextSize = 20
+    closeButton.TextScaled = true
+    closeButton.Font = Enum.Font.GothamBold
+    closeButton.BorderSizePixel = 0
+    closeButton.Parent = mainFrame
+    
+    local closeCorner = Instance.new("UICorner")
+    closeCorner.CornerRadius = UDim.new(1, 0)
+    closeCorner.Parent = closeButton
+    
+    closeButton.MouseEnter:Connect(function()
+        closeButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+        closeButton.BackgroundTransparency = 0.2
+    end)
+    closeButton.MouseLeave:Connect(function()
+        closeButton.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+        closeButton.BackgroundTransparency = 0.5
+    end)
+    
+    closeButton.MouseButton1Click:Connect(function()
+        screenGui:Destroy()
+        print("🔒 Окно активации закрыто")
+    end)
+    
+    -- ============================================
+    -- ОСТАЛЬНЫЕ ЭЛЕМЕНТЫ
+    -- ============================================
     
     local icon = Instance.new("TextLabel")
     icon.Size = UDim2.new(0, 80, 0, 80)
