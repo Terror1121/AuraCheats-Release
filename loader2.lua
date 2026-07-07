@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v3.0
--- МИНИМАЛЬНЫЙ, ТОЛЬКО АКТИВАЦИЯ ПО USER ID
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v3.1
+-- ПОДДЕРЖКА XENO (syn.writefile)
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v3.0")
+print("🔧 Загрузка AuraCheats v3.1")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -16,23 +16,65 @@ local CONFIG = {
 }
 
 -- ============================================
--- 2. РАБОТА С ФАЙЛАМИ
+-- 2. ОБЕРТКИ ДЛЯ ФАЙЛОВЫХ ОПЕРАЦИЙ (XENO/SYN COMPATIBLE)
+-- ============================================
+local function writeFile(path, data)
+    if syn and syn.writefile then
+        return syn.writefile(path, data)
+    elseif writefile then
+        return writefile(path, data)
+    end
+    return false
+end
+
+local function readFile(path)
+    if syn and syn.readfile then
+        return syn.readfile(path)
+    elseif readfile then
+        return readfile(path)
+    end
+    return nil
+end
+
+local function isFile(path)
+    if syn and syn.isfile then
+        return syn.isfile(path)
+    elseif isfile then
+        return isfile(path)
+    end
+    return false
+end
+
+local function deleteFile(path)
+    if syn and syn.delfile then
+        return syn.delfile(path)
+    elseif delfile then
+        return delfile(path)
+    end
+    return false
+end
+
+-- ============================================
+-- 3. РАБОТА С ФАЙЛАМИ
 -- ============================================
 local function saveData(data)
     local success, json = pcall(function()
         return game:GetService("HttpService"):JSONEncode(data)
     end)
     if success and json then
-        writefile(CONFIG.SAVE_FILE, json)
-        return true
+        return writeFile(CONFIG.SAVE_FILE, json)
     end
     return false
 end
 
 local function loadData()
-    if isfile(CONFIG.SAVE_FILE) then
+    if isFile(CONFIG.SAVE_FILE) then
         local success, data = pcall(function()
-            return game:GetService("HttpService"):JSONDecode(readfile(CONFIG.SAVE_FILE))
+            local content = readFile(CONFIG.SAVE_FILE)
+            if content then
+                return game:GetService("HttpService"):JSONDecode(content)
+            end
+            return nil
         end)
         if success and data then
             return data
@@ -42,12 +84,53 @@ local function loadData()
 end
 
 -- ============================================
--- 3. ОТПРАВКА ЗАПРОСА НА СЕРВЕР
+-- 4. HTTP ЗАПРОСЫ (С ПОДДЕРЖКОЙ XENO)
 -- ============================================
+local function httpGet(url)
+    -- Пробуем через syn
+    if syn and syn.request then
+        local response = syn.request({
+            Url = url,
+            Method = "GET"
+        })
+        if response and response.Body then
+            return response.Body
+        end
+    end
+    
+    -- Пробуем через game:HttpGet
+    local success, result = pcall(function()
+        return game:HttpGet(url)
+    end)
+    if success then
+        return result
+    end
+    
+    return nil
+end
+
 local function sendRequest(endpoint, data)
     local url = CONFIG.API_URL .. endpoint
     local json = game:GetService("HttpService"):JSONEncode(data)
     
+    -- Пробуем через syn.request
+    if syn and syn.request then
+        local response = syn.request({
+            Url = url,
+            Method = "POST",
+            Headers = {
+                ["Content-Type"] = "application/json"
+            },
+            Body = json
+        })
+        if response and response.StatusCode == 200 then
+            return game:GetService("HttpService"):JSONDecode(response.Body), nil
+        elseif response then
+            return nil, "HTTP " .. response.StatusCode
+        end
+    end
+    
+    -- Пробуем через game:HttpService:RequestAsync
     local success, response = pcall(function()
         return game:GetService("HttpService"):RequestAsync({
             Url = url,
@@ -71,7 +154,7 @@ local function sendRequest(endpoint, data)
 end
 
 -- ============================================
--- 4. АКТИВАЦИЯ КЛЮЧА
+-- 5. АКТИВАЦИЯ КЛЮЧА
 -- ============================================
 local function activateKey(key)
     local player = game.Players.LocalPlayer
@@ -125,7 +208,7 @@ local function activateKey(key)
 end
 
 -- ============================================
--- 5. ЗАГРУЗКА СКРИПТА С СЕРВЕРА
+-- 6. ЗАГРУЗКА СКРИПТА С СЕРВЕРА
 -- ============================================
 local function loadScriptFromServer(session_token)
     print("📥 Загрузка скрипта с сервера...")
@@ -140,11 +223,8 @@ local function loadScriptFromServer(session_token)
         userId
     )
     
-    local success, response = pcall(function()
-        return game:HttpGet(url)
-    end)
-    
-    if not success then
+    local response = httpGet(url)
+    if not response then
         print("❌ Ошибка загрузки скрипта")
         return false
     end
@@ -169,7 +249,7 @@ local function loadScriptFromServer(session_token)
 end
 
 -- ============================================
--- 6. ПАРСИНГ ДАТЫ
+-- 7. ПАРСИНГ ДАТЫ
 -- ============================================
 local function parseDate(dateString)
     if not dateString then return nil end
@@ -188,7 +268,7 @@ local function parseDate(dateString)
 end
 
 -- ============================================
--- 7. GUI ВВОДА КЛЮЧА
+-- 8. GUI ВВОДА КЛЮЧА
 -- ============================================
 local function showGUI()
     local player = game.Players.LocalPlayer
@@ -339,7 +419,7 @@ local function showGUI()
 end
 
 -- ============================================
--- 8. ЗАПУСК
+-- 9. ЗАПУСК
 -- ============================================
 print("📅 " .. os.date("%Y-%m-%d %H:%M:%S"))
 
