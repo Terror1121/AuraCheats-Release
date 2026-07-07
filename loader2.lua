@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v3.2
--- ТОЛЬКО SYN.REQUEST (ДЛЯ XENO)
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v3.3
+-- ПОДДЕРЖКА XENO (HTTP REQUEST)
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v3.2")
+print("🔧 Загрузка AuraCheats v3.3")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -69,7 +69,7 @@ local function loadData()
 end
 
 -- ============================================
--- 4. HTTP ЗАПРОСЫ (ТОЛЬКО SYN.REQUEST!)
+-- 4. HTTP ЗАПРОСЫ (XENO COMPATIBLE)
 -- ============================================
 local function sendRequest(endpoint, data)
     local url = CONFIG.API_URL .. endpoint
@@ -78,8 +78,11 @@ local function sendRequest(endpoint, data)
     print("📤 Отправка запроса на: " .. url)
     print("📤 Данные: " .. json)
     
-    -- ✅ ТОЛЬКО SYN.REQUEST
+    -- ============================================
+    -- СПОСОБ 1: SYN.REQUEST
+    -- ============================================
     if syn and syn.request then
+        print("🔄 Использую syn.request")
         local response = syn.request({
             Url = url,
             Method = "POST",
@@ -89,21 +92,114 @@ local function sendRequest(endpoint, data)
             Body = json
         })
         
+        if response then
+            print("📥 Ответ статус: " .. (response.StatusCode or "unknown"))
+            print("📥 Ответ тело: " .. (response.Body or "empty"))
+            
+            if response.StatusCode == 200 then
+                return game:GetService("HttpService"):JSONDecode(response.Body), nil
+            else
+                return nil, "HTTP " .. (response.StatusCode or "unknown")
+            end
+        end
+    end
+    
+    -- ============================================
+    -- СПОСОБ 2: HTTP.REQUEST (XENO)
+    -- ============================================
+    if http and http.request then
+        print("🔄 Использую http.request")
+        local response = http.request({
+            Url = url,
+            Method = "POST",
+            Headers = {
+                ["Content-Type"] = "application/json"
+            },
+            Body = json
+        })
+        
+        if response then
+            print("📥 Ответ статус: " .. (response.StatusCode or "unknown"))
+            print("📥 Ответ тело: " .. (response.Body or "empty"))
+            
+            if response.StatusCode == 200 then
+                return game:GetService("HttpService"):JSONDecode(response.Body), nil
+            else
+                return nil, "HTTP " .. (response.StatusCode or "unknown")
+            end
+        end
+    end
+    
+    -- ============================================
+    -- СПОСОБ 3: GAME:HTTPSERVICE:REQUESTASYNC
+    -- ============================================
+    print("🔄 Использую HttpService:RequestAsync")
+    local success, response = pcall(function()
+        return game:GetService("HttpService"):RequestAsync({
+            Url = url,
+            Method = "POST",
+            Headers = {
+                ["Content-Type"] = "application/json"
+            },
+            Body = json
+        })
+    end)
+    
+    if success and response then
         print("📥 Ответ статус: " .. (response.StatusCode or "unknown"))
         print("📥 Ответ тело: " .. (response.Body or "empty"))
         
-        if response and response.StatusCode == 200 then
+        if response.StatusCode == 200 then
             return game:GetService("HttpService"):JSONDecode(response.Body), nil
-        elseif response then
+        else
             return nil, "HTTP " .. (response.StatusCode or "unknown")
         end
     end
     
-    return nil, "syn.request not available"
+    return nil, "No HTTP method available"
 end
 
 -- ============================================
--- 5. АКТИВАЦИЯ КЛЮЧА
+-- 5. GET ЗАПРОС (ДЛЯ СКРИПТА)
+-- ============================================
+local function httpGet(url)
+    print("📤 GET запрос: " .. url)
+    
+    -- SYN.REQUEST
+    if syn and syn.request then
+        local response = syn.request({
+            Url = url,
+            Method = "GET"
+        })
+        if response and response.StatusCode == 200 then
+            return response.Body
+        end
+    end
+    
+    -- HTTP.REQUEST (XENO)
+    if http and http.request then
+        local response = http.request({
+            Url = url,
+            Method = "GET"
+        })
+        if response and response.StatusCode == 200 then
+            return response.Body
+        end
+    end
+    
+    -- GAME:HTTPGET
+    local success, result = pcall(function()
+        return game:HttpGet(url)
+    end)
+    if success then
+        return result
+    end
+    
+    return nil
+end
+
+-- ============================================
+-- 6. АКТИВАЦИЯ КЛЮЧА
 -- ============================================
 local function activateKey(key)
     local player = game.Players.LocalPlayer
@@ -157,7 +253,7 @@ local function activateKey(key)
 end
 
 -- ============================================
--- 6. ЗАГРУЗКА СКРИПТА С СЕРВЕРА
+-- 7. ЗАГРУЗКА СКРИПТА С СЕРВЕРА
 -- ============================================
 local function loadScriptFromServer(session_token)
     print("📥 Загрузка скрипта с сервера...")
@@ -172,46 +268,33 @@ local function loadScriptFromServer(session_token)
         userId
     )
     
-    print("📤 GET запрос: " .. url)
-    
-    if syn and syn.request then
-        local response = syn.request({
-            Url = url,
-            Method = "GET"
-        })
-        
-        if response and response.StatusCode == 200 then
-            local encrypted = response.Body
-            
-            -- Расшифровка
-            local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
-            local decrypted = ""
-            for i = 1, #encrypted do
-                local code = (string.byte(encrypted, i) - string.byte(key, (i-1) % #key + 1)) % 256
-                decrypted = decrypted .. string.char(code)
-            end
-            
-            local func, err = loadstring(decrypted)
-            if not func then
-                print("❌ Ошибка компиляции: " .. (err or "unknown"))
-                return false
-            end
-            
-            print("✅ Скрипт загружен!")
-            pcall(func)
-            return true
-        else
-            print("❌ Ошибка загрузки скрипта: " .. (response.StatusCode or "unknown"))
-            return false
-        end
+    local encrypted = httpGet(url)
+    if not encrypted then
+        print("❌ Ошибка загрузки скрипта")
+        return false
     end
     
-    print("❌ syn.request не доступен")
-    return false
+    -- Расшифровка
+    local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
+    local decrypted = ""
+    for i = 1, #encrypted do
+        local code = (string.byte(encrypted, i) - string.byte(key, (i-1) % #key + 1)) % 256
+        decrypted = decrypted .. string.char(code)
+    end
+    
+    local func, err = loadstring(decrypted)
+    if not func then
+        print("❌ Ошибка компиляции: " .. (err or "unknown"))
+        return false
+    end
+    
+    print("✅ Скрипт загружен!")
+    pcall(func)
+    return true
 end
 
 -- ============================================
--- 7. ПАРСИНГ ДАТЫ
+-- 8. ПАРСИНГ ДАТЫ
 -- ============================================
 local function parseDate(dateString)
     if not dateString then return nil end
@@ -230,7 +313,7 @@ local function parseDate(dateString)
 end
 
 -- ============================================
--- 8. GUI ВВОДА КЛЮЧА
+-- 9. GUI ВВОДА КЛЮЧА
 -- ============================================
 local function showGUI()
     local player = game.Players.LocalPlayer
@@ -381,7 +464,7 @@ local function showGUI()
 end
 
 -- ============================================
--- 9. ЗАПУСК
+-- 10. ЗАПУСК
 -- ============================================
 print("📅 " .. os.date("%Y-%m-%d %H:%M:%S"))
 
