@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v3.1
--- ПОДДЕРЖКА XENO (syn.writefile)
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v3.2
+-- ТОЛЬКО SYN.REQUEST (ДЛЯ XENO)
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v3.1")
+print("🔧 Загрузка AuraCheats v3.2")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -16,13 +16,11 @@ local CONFIG = {
 }
 
 -- ============================================
--- 2. ОБЕРТКИ ДЛЯ ФАЙЛОВЫХ ОПЕРАЦИЙ (XENO/SYN COMPATIBLE)
+-- 2. ОБЕРТКИ ДЛЯ ФАЙЛОВ (XENO)
 -- ============================================
 local function writeFile(path, data)
     if syn and syn.writefile then
         return syn.writefile(path, data)
-    elseif writefile then
-        return writefile(path, data)
     end
     return false
 end
@@ -30,8 +28,6 @@ end
 local function readFile(path)
     if syn and syn.readfile then
         return syn.readfile(path)
-    elseif readfile then
-        return readfile(path)
     end
     return nil
 end
@@ -39,17 +35,6 @@ end
 local function isFile(path)
     if syn and syn.isfile then
         return syn.isfile(path)
-    elseif isfile then
-        return isfile(path)
-    end
-    return false
-end
-
-local function deleteFile(path)
-    if syn and syn.delfile then
-        return syn.delfile(path)
-    elseif delfile then
-        return delfile(path)
     end
     return false
 end
@@ -84,36 +69,16 @@ local function loadData()
 end
 
 -- ============================================
--- 4. HTTP ЗАПРОСЫ (С ПОДДЕРЖКОЙ XENO)
+-- 4. HTTP ЗАПРОСЫ (ТОЛЬКО SYN.REQUEST!)
 -- ============================================
-local function httpGet(url)
-    -- Пробуем через syn
-    if syn and syn.request then
-        local response = syn.request({
-            Url = url,
-            Method = "GET"
-        })
-        if response and response.Body then
-            return response.Body
-        end
-    end
-    
-    -- Пробуем через game:HttpGet
-    local success, result = pcall(function()
-        return game:HttpGet(url)
-    end)
-    if success then
-        return result
-    end
-    
-    return nil
-end
-
 local function sendRequest(endpoint, data)
     local url = CONFIG.API_URL .. endpoint
     local json = game:GetService("HttpService"):JSONEncode(data)
     
-    -- Пробуем через syn.request
+    print("📤 Отправка запроса на: " .. url)
+    print("📤 Данные: " .. json)
+    
+    -- ✅ ТОЛЬКО SYN.REQUEST
     if syn and syn.request then
         local response = syn.request({
             Url = url,
@@ -123,34 +88,18 @@ local function sendRequest(endpoint, data)
             },
             Body = json
         })
+        
+        print("📥 Ответ статус: " .. (response.StatusCode or "unknown"))
+        print("📥 Ответ тело: " .. (response.Body or "empty"))
+        
         if response and response.StatusCode == 200 then
             return game:GetService("HttpService"):JSONDecode(response.Body), nil
         elseif response then
-            return nil, "HTTP " .. response.StatusCode
+            return nil, "HTTP " .. (response.StatusCode or "unknown")
         end
     end
     
-    -- Пробуем через game:HttpService:RequestAsync
-    local success, response = pcall(function()
-        return game:GetService("HttpService"):RequestAsync({
-            Url = url,
-            Method = "POST",
-            Headers = {
-                ["Content-Type"] = "application/json"
-            },
-            Body = json
-        })
-    end)
-    
-    if not success then
-        return nil, "Connection error"
-    end
-    
-    if response.StatusCode ~= 200 then
-        return nil, "HTTP " .. response.StatusCode
-    end
-    
-    return game:GetService("HttpService"):JSONDecode(response.Body), nil
+    return nil, "syn.request not available"
 end
 
 -- ============================================
@@ -223,29 +172,42 @@ local function loadScriptFromServer(session_token)
         userId
     )
     
-    local response = httpGet(url)
-    if not response then
-        print("❌ Ошибка загрузки скрипта")
-        return false
+    print("📤 GET запрос: " .. url)
+    
+    if syn and syn.request then
+        local response = syn.request({
+            Url = url,
+            Method = "GET"
+        })
+        
+        if response and response.StatusCode == 200 then
+            local encrypted = response.Body
+            
+            -- Расшифровка
+            local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
+            local decrypted = ""
+            for i = 1, #encrypted do
+                local code = (string.byte(encrypted, i) - string.byte(key, (i-1) % #key + 1)) % 256
+                decrypted = decrypted .. string.char(code)
+            end
+            
+            local func, err = loadstring(decrypted)
+            if not func then
+                print("❌ Ошибка компиляции: " .. (err or "unknown"))
+                return false
+            end
+            
+            print("✅ Скрипт загружен!")
+            pcall(func)
+            return true
+        else
+            print("❌ Ошибка загрузки скрипта: " .. (response.StatusCode or "unknown"))
+            return false
+        end
     end
     
-    -- Расшифровка
-    local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
-    local decrypted = ""
-    for i = 1, #response do
-        local code = (string.byte(response, i) - string.byte(key, (i-1) % #key + 1)) % 256
-        decrypted = decrypted .. string.char(code)
-    end
-    
-    local func, err = loadstring(decrypted)
-    if not func then
-        print("❌ Ошибка компиляции: " .. (err or "unknown"))
-        return false
-    end
-    
-    print("✅ Скрипт загружен!")
-    pcall(func)
-    return true
+    print("❌ syn.request не доступен")
+    return false
 end
 
 -- ============================================
