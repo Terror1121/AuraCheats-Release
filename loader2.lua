@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v3.4
--- ИСПРАВЛЕННАЯ ЗАГРУЗКА СКРИПТА
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v3.5
+-- ИСПРАВЛЕННЫЙ XOR (ВМЕСТО ВЫЧИТАНИЯ)
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v3.4")
+print("🔧 Загрузка AuraCheats v3.5")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -16,7 +16,7 @@ local CONFIG = {
 }
 
 -- ============================================
--- 2. ОБЕРТКИ ДЛЯ ФАЙЛОВ
+-- 2. ОБЕРТКИ ДЛЯ ФАЙЛОВ (XENO)
 -- ============================================
 local function writeFile(path, data)
     if syn and syn.writefile then
@@ -253,7 +253,7 @@ local function decrypt(encrypted_b64, key)
     -- 1. Декодируем Base64
     local encrypted = ""
     
-    -- Пробуем HttpService:Base64Decode
+    -- HttpService:Base64Decode
     local success, result = pcall(function()
         return game:GetService("HttpService"):Base64Decode(encrypted_b64)
     end)
@@ -261,7 +261,7 @@ local function decrypt(encrypted_b64, key)
         encrypted = result
     end
     
-    -- Пробуем crypt
+    -- crypt
     if encrypted == "" and crypt and crypt.base64decode then
         local success, result = pcall(function()
             return crypt.base64decode(encrypted_b64)
@@ -271,7 +271,7 @@ local function decrypt(encrypted_b64, key)
         end
     end
     
-    -- Пробуем syn.crypt
+    -- syn.crypt
     if encrypted == "" and syn and syn.crypt and syn.crypt.base64 and syn.crypt.base64.decode then
         local success, result = pcall(function()
             return syn.crypt.base64.decode(encrypted_b64)
@@ -281,7 +281,7 @@ local function decrypt(encrypted_b64, key)
         end
     end
     
-    -- Пробуем base64 (глобальный)
+    -- base64 (глобальный)
     if encrypted == "" and base64 and base64.decode then
         local success, result = pcall(function()
             return base64.decode(encrypted_b64)
@@ -295,7 +295,7 @@ local function decrypt(encrypted_b64, key)
         return nil, "Base64 decode failed"
     end
     
-    -- 2. XOR расшифровка
+    -- 2. ✅ XOR расшифровка
     local key_bytes = key
     local key_len = #key_bytes
     local out = {}
@@ -327,20 +327,23 @@ local function loadScriptFromServer(session_token)
     
     local raw_response = httpGet(url)
     if not raw_response then
-        print("❌ Ошибка загрузки скрипта")
+        print("❌ Ошибка загрузки скрипта (пустой ответ)")
         return false
     end
     
     print("🔴 RAW RESPONSE (первые 200 символов):")
     print(raw_response:sub(1, 200))
     
-    -- ============================================
-    -- ✅ ПАРСИМ JSON (ВАЖНО!)
-    -- ============================================
+    -- Парсим JSON
     local response_data = game:GetService("HttpService"):JSONDecode(raw_response)
     
-    if not response_data or response_data.status ~= "success" then
-        print("❌ Ошибка ответа сервера: " .. (response_data and response_data.detail or "unknown"))
+    if not response_data then
+        print("❌ Ошибка парсинга JSON")
+        return false
+    end
+    
+    if response_data.status ~= "success" then
+        print("❌ Ошибка ответа сервера: " .. (response_data.detail or "unknown"))
         return false
     end
     
@@ -352,29 +355,31 @@ local function loadScriptFromServer(session_token)
     
     print("🔴 ENCRYPTED B64 (первые 100 символов):")
     print(encrypted_b64:sub(1, 100))
+    print("🔴 ENCRYPTED B64 ДЛИНА: " .. #encrypted_b64)
     
     -- Расшифровка
     local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
+    print("🔴 КЛЮЧ: " .. key)
+    
     local decrypted, err = decrypt(encrypted_b64, key)
     if not decrypted then
         print("❌ Ошибка расшифровки: " .. err)
         return false
     end
     
-    -- ============================================
-    -- ОТЛАДКА
-    -- ============================================
-    print("🔴 DECRYPTED LENGTH:", #decrypted)
-    print("🔴 DECRYPTED FIRST 80 CHARS:", decrypted:sub(1, 80))
+    -- Отладка
+    print("🔴 DECRYPTED LENGTH: " .. #decrypted)
+    print("🔴 DECRYPTED FIRST 80 CHARS:")
+    print(decrypted:sub(1, 80))
     
     local hex_bytes = {}
     for i = 1, math.min(16, #decrypted) do
         hex_bytes[i] = string.format("%02X", string.byte(decrypted, i))
     end
-    print("🔴 HEX BYTES:", table.concat(hex_bytes, " "))
+    print("🔴 HEX BYTES: " .. table.concat(hex_bytes, " "))
     
     if decrypted:sub(1,1) == "{" then
-        print("🔴 DETECTED: JSON (NEED TO PARSE)")
+        print("🔴 DETECTED: JSON")
     elseif decrypted:find("local") or decrypted:find("function") or decrypted:find("--") then
         print("🔴 DETECTED: LUA CODE")
     else
@@ -394,7 +399,7 @@ local function loadScriptFromServer(session_token)
         return false
     end
     
-    print("✅ Скрипт загружен!")
+    print("✅ Скрипт скомпилирован!")
     pcall(func)
     return true
 end
