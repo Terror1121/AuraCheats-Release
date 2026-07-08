@@ -1,6 +1,6 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v3.7
--- ИСПРАВЛЕННЫЙ BASE64 ДЕКОДЕР И ПАРСИНГ JSON
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v3.8
+-- ПРАВИЛЬНЫЙ XOR + BASE64
 -- ============================================
 
 print("🔧 Загрузка AuraCheats v3.8")
@@ -22,19 +22,15 @@ local function base64Decode(data)
     local b64chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
     local result = {}
     
-    -- Убираем все лишние символы
     data = string.gsub(data, '[^'..b64chars..'=]', '')
     
     for i = 1, #data, 4 do
         local a, b, c, d = string.byte(data, i, i+3)
-        
-        -- Проверяем, что все байты существуют
         if not a or not b then break end
         
         local x = (b64chars:find(string.char(a), 1, true) - 1) * 4 + (b64chars:find(string.char(b), 1, true) - 1)
         local y = 0
-        
-        if c and c ~= 61 then  -- 61 = '='
+        if c and c ~= 61 then
             y = (b64chars:find(string.char(c), 1, true) - 1) * 4 + (b64chars:find(string.char(d or '='), 1, true) - 1)
         end
         
@@ -299,11 +295,7 @@ local function loadScriptFromServer(session_token)
     print("🔴 RAW RESPONSE (первые 200 символов):")
     print(raw_response:sub(1, 200))
     
-    -- ============================================
-    -- ✅ ПАРСИМ JSON
-    -- ============================================
     local response_data = game:GetService("HttpService"):JSONDecode(raw_response)
-    
     if not response_data then
         print("❌ Ошибка парсинга JSON")
         return false
@@ -320,14 +312,15 @@ local function loadScriptFromServer(session_token)
         return false
     end
     
-    -- ✅ ТЕПЕРЬ ПРАВИЛЬНО ВЫВОДИМ ТОЛЬКО ENCRYPTED_B64
     print("🔴 ENCRYPTED B64 (первые 100 символов):")
     print(encrypted_b64:sub(1, 100))
     print("🔴 ENCRYPTED B64 ДЛИНА: " .. #encrypted_b64)
     
     -- ============================================
-    -- ✅ ДЕКОДИРУЕМ BASE64 В БАЙТЫ
+    -- ✅ ПРАВИЛЬНАЯ РАСШИФРОВКА
     -- ============================================
+    
+    -- 1. Декодируем Base64 в байты
     local encrypted_bytes = base64Decode(encrypted_b64)
     if not encrypted_bytes or #encrypted_bytes == 0 then
         print("❌ Ошибка декодирования Base64")
@@ -336,9 +329,7 @@ local function loadScriptFromServer(session_token)
     
     print("🔴 DECODED BYTES LENGTH: " .. #encrypted_bytes)
     
-    -- ============================================
-    -- ✅ РАСШИФРОВКА XOR (БАЙТОВЫЙ УРОВЕНЬ)
-    -- ============================================
+    -- 2. XOR расшифровка (байтовый уровень)
     local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
     local decrypted = ""
     for i = 1, #encrypted_bytes do
@@ -379,7 +370,6 @@ local function loadScriptFromServer(session_token)
         print("⚠️ keyData создан из session_token")
     end
     
-    -- Компилируем и выполняем
     local func, err = loadstring(decrypted)
     if not func then
         print("❌ Ошибка компиляции: " .. (err or "unknown"))
