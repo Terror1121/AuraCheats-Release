@@ -1,6 +1,6 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v3.3
--- ПОДДЕРЖКА XENO (HTTP REQUEST)
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v3.4
+-- ПОДДЕРЖКА XENO (HTTP REQUEST) + XOR
 -- ============================================
 
 print("🔧 Загрузка AuraCheats v3.4")
@@ -274,12 +274,15 @@ local function loadScriptFromServer(session_token)
         return false
     end
     
-    -- Расшифровка
+    -- ============================================
+    -- ✅ ПРАВИЛЬНАЯ РАСШИФРОВКА (XOR)
+    -- ============================================
     local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
     local decrypted = ""
     for i = 1, #encrypted do
-        local code = (string.byte(encrypted, i) - string.byte(key, (i-1) % #key + 1)) % 256
-        decrypted = decrypted .. string.char(code)
+        local byte = string.byte(encrypted, i)
+        local keyByte = string.byte(key, (i - 1) % #key + 1)
+        decrypted = decrypted .. string.char(bit32.bxor(byte, keyByte))
     end
     
     -- Загружаем сохраненные данные
@@ -287,7 +290,6 @@ local function loadScriptFromServer(session_token)
     local keyData = nil
     
     if saved then
-        -- ✅ keyData с правильными датами
         keyData = {
             isValid = true,
             key = saved.key,
