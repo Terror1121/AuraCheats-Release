@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v3.3
--- ПОДДЕРЖКА XENO (HTTP REQUEST)
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v3.4
+-- ИСПРАВЛЕННАЯ ЗАГРУЗКА СКРИПТА
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v3.3")
+print("🔧 Загрузка AuraCheats v3.4")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -16,7 +16,7 @@ local CONFIG = {
 }
 
 -- ============================================
--- 2. ОБЕРТКИ ДЛЯ ФАЙЛОВ (XENO)
+-- 2. ОБЕРТКИ ДЛЯ ФАЙЛОВ
 -- ============================================
 local function writeFile(path, data)
     if syn and syn.writefile then
@@ -69,7 +69,7 @@ local function loadData()
 end
 
 -- ============================================
--- 4. HTTP ЗАПРОСЫ (XENO COMPATIBLE)
+-- 4. HTTP ЗАПРОСЫ (POST)
 -- ============================================
 local function sendRequest(endpoint, data)
     local url = CONFIG.API_URL .. endpoint
@@ -78,9 +78,7 @@ local function sendRequest(endpoint, data)
     print("📤 Отправка запроса на: " .. url)
     print("📤 Данные: " .. json)
     
-    -- ============================================
-    -- СПОСОБ 1: SYN.REQUEST
-    -- ============================================
+    -- SYN.REQUEST
     if syn and syn.request then
         print("🔄 Использую syn.request")
         local response = syn.request({
@@ -104,9 +102,7 @@ local function sendRequest(endpoint, data)
         end
     end
     
-    -- ============================================
-    -- СПОСОБ 2: HTTP.REQUEST (XENO)
-    -- ============================================
+    -- HTTP.REQUEST (XENO)
     if http and http.request then
         print("🔄 Использую http.request")
         local response = http.request({
@@ -130,9 +126,7 @@ local function sendRequest(endpoint, data)
         end
     end
     
-    -- ============================================
-    -- СПОСОБ 3: GAME:HTTPSERVICE:REQUESTASYNC
-    -- ============================================
+    -- HTTPSERVICE:REQUESTASYNC
     print("🔄 Использую HttpService:RequestAsync")
     local success, response = pcall(function()
         return game:GetService("HttpService"):RequestAsync({
@@ -253,7 +247,70 @@ local function activateKey(key)
 end
 
 -- ============================================
--- 7. ЗАГРУЗКА СКРИПТА С СЕРВЕРА
+-- 7. РАСШИФРОВКА (XOR НА БАЙТАХ)
+-- ============================================
+local function decrypt(encrypted_b64, key)
+    -- 1. Декодируем Base64
+    local encrypted = ""
+    
+    -- Пробуем HttpService:Base64Decode
+    local success, result = pcall(function()
+        return game:GetService("HttpService"):Base64Decode(encrypted_b64)
+    end)
+    if success and result then
+        encrypted = result
+    end
+    
+    -- Пробуем crypt
+    if encrypted == "" and crypt and crypt.base64decode then
+        local success, result = pcall(function()
+            return crypt.base64decode(encrypted_b64)
+        end)
+        if success and result then
+            encrypted = result
+        end
+    end
+    
+    -- Пробуем syn.crypt
+    if encrypted == "" and syn and syn.crypt and syn.crypt.base64 and syn.crypt.base64.decode then
+        local success, result = pcall(function()
+            return syn.crypt.base64.decode(encrypted_b64)
+        end)
+        if success and result then
+            encrypted = result
+        end
+    end
+    
+    -- Пробуем base64 (глобальный)
+    if encrypted == "" and base64 and base64.decode then
+        local success, result = pcall(function()
+            return base64.decode(encrypted_b64)
+        end)
+        if success and result then
+            encrypted = result
+        end
+    end
+    
+    if encrypted == "" then
+        return nil, "Base64 decode failed"
+    end
+    
+    -- 2. XOR расшифровка
+    local key_bytes = key
+    local key_len = #key_bytes
+    local out = {}
+    
+    for i = 1, #encrypted do
+        local byte = string.byte(encrypted, i)
+        local keyByte = string.byte(key_bytes, (i - 1) % key_len + 1)
+        out[i] = string.char(bit32.bxor(byte, keyByte))
+    end
+    
+    return table.concat(out), nil
+end
+
+-- ============================================
+-- 8. ЗАГРУЗКА СКРИПТА С СЕРВЕРА
 -- ============================================
 local function loadScriptFromServer(session_token)
     print("📥 Загрузка скрипта с сервера...")
@@ -268,20 +325,69 @@ local function loadScriptFromServer(session_token)
         userId
     )
     
-    local encrypted = httpGet(url)
-    if not encrypted then
+    local raw_response = httpGet(url)
+    if not raw_response then
         print("❌ Ошибка загрузки скрипта")
         return false
     end
     
-    -- Расшифровка
-    local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
-    local decrypted = ""
-    for i = 1, #encrypted do
-        local code = (string.byte(encrypted, i) - string.byte(key, (i-1) % #key + 1)) % 256
-        decrypted = decrypted .. string.char(code)
+    print("🔴 RAW RESPONSE (первые 200 символов):")
+    print(raw_response:sub(1, 200))
+    
+    -- ============================================
+    -- ✅ ПАРСИМ JSON (ВАЖНО!)
+    -- ============================================
+    local response_data = game:GetService("HttpService"):JSONDecode(raw_response)
+    
+    if not response_data or response_data.status ~= "success" then
+        print("❌ Ошибка ответа сервера: " .. (response_data and response_data.detail or "unknown"))
+        return false
     end
     
+    local encrypted_b64 = response_data.script
+    if not encrypted_b64 then
+        print("❌ Нет поля 'script' в ответе")
+        return false
+    end
+    
+    print("🔴 ENCRYPTED B64 (первые 100 символов):")
+    print(encrypted_b64:sub(1, 100))
+    
+    -- Расшифровка
+    local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
+    local decrypted, err = decrypt(encrypted_b64, key)
+    if not decrypted then
+        print("❌ Ошибка расшифровки: " .. err)
+        return false
+    end
+    
+    -- ============================================
+    -- ОТЛАДКА
+    -- ============================================
+    print("🔴 DECRYPTED LENGTH:", #decrypted)
+    print("🔴 DECRYPTED FIRST 80 CHARS:", decrypted:sub(1, 80))
+    
+    local hex_bytes = {}
+    for i = 1, math.min(16, #decrypted) do
+        hex_bytes[i] = string.format("%02X", string.byte(decrypted, i))
+    end
+    print("🔴 HEX BYTES:", table.concat(hex_bytes, " "))
+    
+    if decrypted:sub(1,1) == "{" then
+        print("🔴 DETECTED: JSON (NEED TO PARSE)")
+    elseif decrypted:find("local") or decrypted:find("function") or decrypted:find("--") then
+        print("🔴 DETECTED: LUA CODE")
+    else
+        print("🔴 DETECTED: UNKNOWN FORMAT")
+    end
+    
+    -- Сохраняем для отладки
+    if writeFile then
+        writeFile("aura_debug.lua", decrypted)
+        print("📁 debug file saved: aura_debug.lua")
+    end
+    
+    -- Компилируем
     local func, err = loadstring(decrypted)
     if not func then
         print("❌ Ошибка компиляции: " .. (err or "unknown"))
@@ -294,7 +400,7 @@ local function loadScriptFromServer(session_token)
 end
 
 -- ============================================
--- 8. ПАРСИНГ ДАТЫ
+-- 9. ПАРСИНГ ДАТЫ
 -- ============================================
 local function parseDate(dateString)
     if not dateString then return nil end
@@ -313,7 +419,7 @@ local function parseDate(dateString)
 end
 
 -- ============================================
--- 9. GUI ВВОДА КЛЮЧА
+-- 10. GUI ВВОДА КЛЮЧА
 -- ============================================
 local function showGUI()
     local player = game.Players.LocalPlayer
@@ -464,7 +570,7 @@ local function showGUI()
 end
 
 -- ============================================
--- 10. ЗАПУСК
+-- 11. ЗАПУСК
 -- ============================================
 print("📅 " .. os.date("%Y-%m-%d %H:%M:%S"))
 
