@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v3.6
--- С УНИВЕРСАЛЬНЫМ BASE64 ДЕКОДЕРОМ
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v3.7
+-- ИСПРАВЛЕННЫЙ BASE64 ДЕКОДЕР И ПАРСИНГ JSON
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v3.7")
+print("🔧 Загрузка AuraCheats v3.8")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -22,21 +22,29 @@ local function base64Decode(data)
     local b64chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
     local result = {}
     
+    -- Убираем все лишние символы
     data = string.gsub(data, '[^'..b64chars..'=]', '')
     
     for i = 1, #data, 4 do
         local a, b, c, d = string.byte(data, i, i+3)
-        local x = (b64chars:find(string.char(a)) - 1) * 4 + (b64chars:find(string.char(b)) - 1)
-        local y = (b64chars:find(string.char(c or '=')) - 1) * 4 + (b64chars:find(string.char(d or '=')) - 1)
+        
+        -- Проверяем, что все байты существуют
+        if not a or not b then break end
+        
+        local x = (b64chars:find(string.char(a), 1, true) - 1) * 4 + (b64chars:find(string.char(b), 1, true) - 1)
+        local y = 0
+        
+        if c and c ~= 61 then  -- 61 = '='
+            y = (b64chars:find(string.char(c), 1, true) - 1) * 4 + (b64chars:find(string.char(d or '='), 1, true) - 1)
+        end
         
         local b1 = math.floor(x / 256) % 256
         local b2 = math.floor(x / 256) % 256
         local b3 = math.floor(y / 256) % 256
-        local b4 = math.floor(y / 256) % 256
         
         table.insert(result, string.char(b1))
-        if c ~= '=' then table.insert(result, string.char(b2)) end
-        if d ~= '=' then table.insert(result, string.char(b3)) end
+        if c and c ~= 61 then table.insert(result, string.char(b2)) end
+        if d and d ~= 61 then table.insert(result, string.char(b3)) end
     end
     
     return table.concat(result)
@@ -105,7 +113,6 @@ local function sendRequest(endpoint, data)
     print("📤 Отправка запроса на: " .. url)
     print("📤 Данные: " .. json)
     
-    -- SYN.REQUEST
     if syn and syn.request then
         print("🔄 Использую syn.request")
         local response = syn.request({
@@ -129,7 +136,6 @@ local function sendRequest(endpoint, data)
         end
     end
     
-    -- HTTP.REQUEST (XENO)
     if http and http.request then
         print("🔄 Использую http.request")
         local response = http.request({
@@ -153,7 +159,6 @@ local function sendRequest(endpoint, data)
         end
     end
     
-    -- HTTPSERVICE:REQUESTASYNC
     print("🔄 Использую HttpService:RequestAsync")
     local success, response = pcall(function()
         return game:GetService("HttpService"):RequestAsync({
@@ -294,6 +299,9 @@ local function loadScriptFromServer(session_token)
     print("🔴 RAW RESPONSE (первые 200 символов):")
     print(raw_response:sub(1, 200))
     
+    -- ============================================
+    -- ✅ ПАРСИМ JSON
+    -- ============================================
     local response_data = game:GetService("HttpService"):JSONDecode(raw_response)
     
     if not response_data then
@@ -312,6 +320,7 @@ local function loadScriptFromServer(session_token)
         return false
     end
     
+    -- ✅ ТЕПЕРЬ ПРАВИЛЬНО ВЫВОДИМ ТОЛЬКО ENCRYPTED_B64
     print("🔴 ENCRYPTED B64 (первые 100 символов):")
     print(encrypted_b64:sub(1, 100))
     print("🔴 ENCRYPTED B64 ДЛИНА: " .. #encrypted_b64)
