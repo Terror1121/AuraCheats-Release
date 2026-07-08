@@ -1,6 +1,6 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v3.4
--- ПОДДЕРЖКА XENO (HTTP REQUEST) + XOR
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v3.5
+-- ПОДДЕРЖКА XENO + XOR + ПАРСИНГ JSON
 -- ============================================
 
 print("🔧 Загрузка AuraCheats v3.5")
@@ -253,7 +253,7 @@ local function activateKey(key)
 end
 
 -- ============================================
--- 7. ЗАГРУЗКА СКРИПТА С СЕРВЕРА (С ПЕРЕДАЧЕЙ keyData)
+-- 7. ЗАГРУЗКА СКРИПТА С СЕРВЕРА (С ПАРСИНГОМ JSON)
 -- ============================================
 local function loadScriptFromServer(session_token)
     print("📥 Загрузка скрипта с сервера...")
@@ -268,22 +268,54 @@ local function loadScriptFromServer(session_token)
         userId
     )
     
-    local encrypted = httpGet(url)
-    if not encrypted then
-        print("❌ Ошибка загрузки скрипта")
+    local raw_response = httpGet(url)
+    if not raw_response then
+        print("❌ Ошибка загрузки скрипта (пустой ответ)")
         return false
     end
+    
+    print("🔴 RAW RESPONSE (первые 200 символов):")
+    print(raw_response:sub(1, 200))
+    
+    -- ============================================
+    -- ✅ ПАРСИМ JSON И БЕРЕМ ПОЛЕ script
+    -- ============================================
+    local response_data = game:GetService("HttpService"):JSONDecode(raw_response)
+    
+    if not response_data then
+        print("❌ Ошибка парсинга JSON")
+        return false
+    end
+    
+    if response_data.status ~= "success" then
+        print("❌ Ошибка ответа сервера: " .. (response_data.detail or "unknown"))
+        return false
+    end
+    
+    local encrypted_b64 = response_data.script
+    if not encrypted_b64 then
+        print("❌ Нет поля 'script' в ответе")
+        return false
+    end
+    
+    print("🔴 ENCRYPTED B64 (первые 100 символов):")
+    print(encrypted_b64:sub(1, 100))
+    print("🔴 ENCRYPTED B64 ДЛИНА: " .. #encrypted_b64)
     
     -- ============================================
     -- ✅ ПРАВИЛЬНАЯ РАСШИФРОВКА (XOR)
     -- ============================================
     local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
     local decrypted = ""
-    for i = 1, #encrypted do
-        local byte = string.byte(encrypted, i)
+    for i = 1, #encrypted_b64 do
+        local byte = string.byte(encrypted_b64, i)
         local keyByte = string.byte(key, (i - 1) % #key + 1)
         decrypted = decrypted .. string.char(bit32.bxor(byte, keyByte))
     end
+    
+    print("🔴 DECRYPTED LENGTH: " .. #decrypted)
+    print("🔴 DECRYPTED FIRST 80 CHARS:")
+    print(decrypted:sub(1, 80))
     
     -- Загружаем сохраненные данные
     local saved = loadData()
@@ -301,7 +333,6 @@ local function loadScriptFromServer(session_token)
         print("📅 Дата активации: " .. os.date("%d.%m.%Y %H:%M", saved.activationDate))
         print("📅 Дата истечения: " .. os.date("%d.%m.%Y %H:%M", saved.expirationDate))
     else
-        -- Если нет сохранения, создаем временные данные
         local currentTime = os.time()
         keyData = {
             isValid = true,
@@ -314,7 +345,7 @@ local function loadScriptFromServer(session_token)
         print("⚠️ keyData создан из session_token")
     end
     
-    -- Компилируем и выполняем с передачей keyData
+    -- Компилируем и выполняем
     local func, err = loadstring(decrypted)
     if not func then
         print("❌ Ошибка компиляции: " .. (err or "unknown"))
