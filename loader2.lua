@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.9
--- ИСПРАВЛЕННАЯ ПРОВЕРКА КЛЮЧА
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.10
+-- FIX: Key already activated → УСПЕХ
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.9")
+print("🔧 Загрузка AuraCheats v5.10")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -298,15 +298,23 @@ local function checkKeyOnServer(key)
     print("📥 Ответ статус: " .. response.status)
     print("📥 Ответ сообщение: " .. (response.message or "none"))
     
-    -- ✅ Если ключ уже активирован — это успех!
+    -- ============================================
+    -- ✅ ЛОГИКА ПРОВЕРКИ:
+    -- "Key already activated" → УСПЕХ
+    -- Любая другая ошибка → НЕ УСПЕХ
+    -- ============================================
+    
+    -- 1. Если ключ активирован только что
     if response.status == "success" then
-        -- Ключ активирован только что
+        print("✅ Ключ активирован!")
         return true, response
-    elseif response.status == "error" and response.message == "Key already activated" then
-        -- ✅ Ключ уже был активирован ранее — это тоже успех!
+    end
+    
+    -- 2. Если ключ уже был активирован ранее → ЭТО УСПЕХ!
+    if response.status == "error" and response.message == "Key already activated" then
         print("✅ Ключ уже активирован, создаем сессию...")
         
-        -- Создаем сессию для этого ключа
+        -- Создаем сессию
         local sessionData = {
             userId = player.UserId,
             executor = execName,
@@ -327,14 +335,15 @@ local function checkKeyOnServer(key)
             expires_at = nil,
             session_token = sessionResponse.session
         }
-    else
-        print("❌ Ключ неактивен: " .. (response.message or "unknown"))
-        return false, nil
     end
+    
+    -- 3. Все остальные ошибки → НЕ УСПЕХ
+    print("❌ Ключ неактивен: " .. (response.message or "unknown"))
+    return false, nil
 end
 
 -- ============================================
--- 10. АКТИВАЦИЯ КЛЮЧА (НОВЫЙ КЛЮЧ)
+-- 10. АКТИВАЦИЯ КЛЮЧА
 -- ============================================
 local function activateKey(key)
     return checkKeyOnServer(key)
@@ -652,9 +661,8 @@ end
 print("🔴 _G.AuraCheatsKeyData: " .. tostring(_G.AuraCheatsKeyData))
 
 -- ============================================
--- ✅ ГЛАВНАЯ ЛОГИКА: ПРОВЕРКА КЛЮЧА
+-- ГЛАВНАЯ ЛОГИКА
 -- ============================================
-
 local saved = loadData()
 
 if saved and saved.key and saved.userId == player.UserId then
