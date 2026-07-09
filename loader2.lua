@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.6
--- УНИВЕРСАЛЬНЫЙ (ВСЕ ИНЖЕКТОРЫ)
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.7
+-- СОХРАНЕНИЕ КЛЮЧА НА ПК + ПРОВЕРКА НА СЕРВЕРЕ
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.6")
+print("🔧 Загрузка AuraCheats v5.7")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -19,7 +19,6 @@ local CONFIG = {
 -- 2. УНИВЕРСАЛЬНАЯ ЗАПИСЬ ФАЙЛА
 -- ============================================
 local function writeFileUniversal(path, data)
-    -- Способ 1: syn.writefile (Synapse X, Krnl, ScriptWare)
     if syn and syn.writefile then
         local success, result = pcall(function()
             return syn.writefile(path, data)
@@ -29,7 +28,6 @@ local function writeFileUniversal(path, data)
         end
     end
     
-    -- Способ 2: обычный writefile (некоторые инжекторы)
     if writefile then
         local success, result = pcall(function()
             return writefile(path, data)
@@ -39,7 +37,6 @@ local function writeFileUniversal(path, data)
         end
     end
     
-    -- Способ 3: через secure_call (обход ограничений)
     if secure_call then
         local success, result = pcall(function()
             return secure_call(function()
@@ -58,7 +55,6 @@ end
 -- 3. УНИВЕРСАЛЬНОЕ ЧТЕНИЕ ФАЙЛА
 -- ============================================
 local function readFileUniversal(path)
-    -- Способ 1: syn.readfile
     if syn and syn.readfile then
         local success, result = pcall(function()
             return syn.readfile(path)
@@ -68,7 +64,6 @@ local function readFileUniversal(path)
         end
     end
     
-    -- Способ 2: обычный readfile
     if readfile then
         local success, result = pcall(function()
             return readfile(path)
@@ -78,7 +73,6 @@ local function readFileUniversal(path)
         end
     end
     
-    -- Способ 3: через secure_call
     if secure_call then
         local success, result = pcall(function()
             return secure_call(function()
@@ -97,7 +91,6 @@ end
 -- 4. УНИВЕРСАЛЬНАЯ ПРОВЕРКА ФАЙЛА
 -- ============================================
 local function isFileUniversal(path)
-    -- Способ 1: syn.isfile
     if syn and syn.isfile then
         local success, result = pcall(function()
             return syn.isfile(path)
@@ -107,7 +100,6 @@ local function isFileUniversal(path)
         end
     end
     
-    -- Способ 2: обычный isfile
     if isfile then
         local success, result = pcall(function()
             return isfile(path)
@@ -117,7 +109,6 @@ local function isFileUniversal(path)
         end
     end
     
-    -- Способ 3: через secure_call
     if secure_call then
         local success, result = pcall(function()
             return secure_call(function()
@@ -136,11 +127,9 @@ end
 -- 5. РАБОТА С ДАННЫМИ (_G + ФАЙЛ)
 -- ============================================
 local function saveData(data)
-    -- ✅ Всегда сохраняем в _G (работает везде)
     _G.AuraCheatsKeyData = data
     print("🔴 Данные сохранены в _G")
     
-    -- Пробуем сохранить в файл
     local success, json = pcall(function()
         return game:GetService("HttpService"):JSONEncode(data)
     end)
@@ -157,13 +146,11 @@ local function saveData(data)
 end
 
 local function loadData()
-    -- 1. Проверяем _G (всегда работает)
     if _G.AuraCheatsKeyData then
         print("🔴 Данные загружены из _G")
         return _G.AuraCheatsKeyData
     end
     
-    -- 2. Проверяем файл
     if isFileUniversal(CONFIG.SAVE_FILE) then
         local content = readFileUniversal(CONFIG.SAVE_FILE)
         if content then
@@ -208,7 +195,6 @@ local function sendRequest(endpoint, data)
     local url = CONFIG.API_URL .. endpoint
     local json = game:GetService("HttpService"):JSONEncode(data)
     
-    -- Способ 1: syn.request
     if syn and syn.request then
         local response = syn.request({
             Url = url,
@@ -223,7 +209,6 @@ local function sendRequest(endpoint, data)
         end
     end
     
-    -- Способ 2: http.request (Xeno)
     if http and http.request then
         local response = http.request({
             Url = url,
@@ -238,7 +223,6 @@ local function sendRequest(endpoint, data)
         end
     end
     
-    -- Способ 3: HttpService:RequestAsync
     local success, response = pcall(function()
         return game:GetService("HttpService"):RequestAsync({
             Url = url,
@@ -261,7 +245,6 @@ end
 -- 8. GET ЗАПРОС (УНИВЕРСАЛЬНЫЙ)
 -- ============================================
 local function httpGet(url)
-    -- Способ 1: syn.request
     if syn and syn.request then
         local response = syn.request({ Url = url, Method = "GET" })
         if response and response.StatusCode == 200 then
@@ -269,7 +252,6 @@ local function httpGet(url)
         end
     end
     
-    -- Способ 2: http.request
     if http and http.request then
         local response = http.request({ Url = url, Method = "GET" })
         if response and response.StatusCode == 200 then
@@ -277,7 +259,6 @@ local function httpGet(url)
         end
     end
     
-    -- Способ 3: game:HttpGet
     local success, result = pcall(function()
         return game:HttpGet(url)
     end)
@@ -299,7 +280,6 @@ local function activateKey(key)
     print("   User ID: " .. player.UserId)
     print("   User: " .. player.Name)
     print("   Injector: " .. execName)
-    print("   Version: " .. CONFIG.VERSION)
     
     local data = {
         key = key,
@@ -375,7 +355,7 @@ local function loadScriptFromServer(session_token)
         return false
     end
     
-    -- Декодируем Base64 (универсально)
+    -- Декодируем Base64
     local encrypted_bytes = nil
     
     if crypt and crypt.base64decode then
@@ -627,27 +607,19 @@ print("👤 User ID: " .. player.UserId)
 print("👤 User: " .. player.Name)
 
 -- ============================================
--- ✅ ГЛАВНАЯ ЛОГИКА: ПРОВЕРКА СЕССИИ
+-- ✅ ГЛАВНАЯ ЛОГИКА: ПРОВЕРКА КЛЮЧА НА СЕРВЕРЕ
 -- ============================================
 
 local saved = loadData()
 
 if saved and saved.session_token and saved.userId == player.UserId then
     print("🔑 Найден сохраненный ключ")
+    print("🔑 KEY: " .. tostring(saved.key))
     print("🔑 SESSION: " .. tostring(saved.session_token))
     
-    -- Проверяем, не истек ли ключ по дате
-    if saved.expires_at then
-        local exp = parseDate(saved.expires_at)
-        if exp and os.time() >= exp then
-            print("⚠️ Срок ключа истек, требуется повторная активация")
-            _G.AuraCheatsKeyData = nil
-            showGUI()
-            return
-        end
-    end
-    
+    -- ============================================
     -- ✅ ПРОВЕРЯЕМ СЕССИЮ НА СЕРВЕРЕ
+    -- ============================================
     print("📥 Проверка сессии на сервере...")
     local sessionData = {
         userId = player.UserId,
@@ -666,6 +638,7 @@ if saved and saved.session_token and saved.userId == player.UserId then
     else
         print("⚠️ Сессия невалидна или истекла, требуется повторная активация")
         _G.AuraCheatsKeyData = nil
+        -- ❌ НЕ УДАЛЯЕМ ФАЙЛ! Пользователь может попробовать позже
         showGUI()
     end
 else
