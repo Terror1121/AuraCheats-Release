@@ -1,46 +1,12 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v4.1
--- ПОЛНАЯ ДИАГНОСТИКА
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.1
+-- ФИНАЛЬНАЯ ВЕРСИЯ С ПРОВЕРКОЙ КЛЮЧА
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v4.1")
+print("🔧 Загрузка AuraCheats v5.1")
 
 -- ============================================
--- ДИАГНОСТИКА XENO
--- ============================================
-print("🔴 ДИАГНОСТИКА:")
-print("🔴 crypt: " .. tostring(crypt))
-print("🔴 crypt.base64decode: " .. tostring(crypt and crypt.base64decode))
-print("🔴 syn: " .. tostring(syn))
-print("🔴 syn.crypt: " .. tostring(syn and syn.crypt))
-print("🔴 base64: " .. tostring(base64))
-print("🔴 bit32: " .. tostring(bit32))
-print("🔴 bit32.bxor: " .. tostring(bit32 and bit32.bxor))
-
--- ============================================
--- 1. ФУНКЦИЯ repr (ДЛЯ ОТЛАДКИ)
--- ============================================
-local function repr(str)
-    if not str then return "nil" end
-    local result = '"'
-    for i = 1, #str do
-        local c = string.byte(str, i)
-        if c == 34 then result = result .. '\\"'
-        elseif c == 92 then result = result .. '\\\\'
-        elseif c == 10 then result = result .. '\\n'
-        elseif c == 13 then result = result .. '\\r'
-        elseif c == 9 then result = result .. '\\t'
-        elseif c < 32 or c > 126 then
-            result = result .. string.format("\\x%02X", c)
-        else
-            result = result .. string.char(c)
-        end
-    end
-    return result .. '"'
-end
-
--- ============================================
--- 2. КОНФИГУРАЦИЯ
+-- 1. КОНФИГУРАЦИЯ
 -- ============================================
 local CONFIG = {
     API_URL = "https://aura-cheats-bot.onrender.com/api/v6",
@@ -50,7 +16,7 @@ local CONFIG = {
 }
 
 -- ============================================
--- 3. ОБЕРТКИ ДЛЯ ФАЙЛОВ (XENO)
+-- 2. ОБЕРТКИ ДЛЯ ФАЙЛОВ (XENO)
 -- ============================================
 local function writeFile(path, data)
     if syn and syn.writefile then
@@ -74,7 +40,7 @@ local function isFile(path)
 end
 
 -- ============================================
--- 4. РАБОТА С ФАЙЛАМИ
+-- 3. РАБОТА С ФАЙЛАМИ
 -- ============================================
 local function saveData(data)
     local success, json = pcall(function()
@@ -103,17 +69,32 @@ local function loadData()
 end
 
 -- ============================================
+-- 4. ПАРСИНГ ДАТЫ
+-- ============================================
+local function parseDate(dateString)
+    if not dateString then return nil end
+    local year, month, day, hour, minute, second = dateString:match("(%d+)-(%d+)-(%d+)[T ](%d+):(%d+):(%d+)")
+    if year and month and day and hour and minute and second then
+        return os.time({
+            year = tonumber(year),
+            month = tonumber(month),
+            day = tonumber(day),
+            hour = tonumber(hour),
+            min = tonumber(minute),
+            sec = tonumber(second)
+        })
+    end
+    return nil
+end
+
+-- ============================================
 -- 5. HTTP ЗАПРОСЫ (XENO COMPATIBLE)
 -- ============================================
 local function sendRequest(endpoint, data)
     local url = CONFIG.API_URL .. endpoint
     local json = game:GetService("HttpService"):JSONEncode(data)
     
-    print("📤 Отправка запроса на: " .. url)
-    print("📤 Данные: " .. json)
-    
     if syn and syn.request then
-        print("🔄 Использую syn.request")
         local response = syn.request({
             Url = url,
             Method = "POST",
@@ -122,21 +103,12 @@ local function sendRequest(endpoint, data)
             },
             Body = json
         })
-        
-        if response then
-            print("📥 Ответ статус: " .. (response.StatusCode or "unknown"))
-            print("📥 Ответ тело: " .. (response.Body or "empty"))
-            
-            if response.StatusCode == 200 then
-                return game:GetService("HttpService"):JSONDecode(response.Body), nil
-            else
-                return nil, "HTTP " .. (response.StatusCode or "unknown")
-            end
+        if response and response.StatusCode == 200 then
+            return game:GetService("HttpService"):JSONDecode(response.Body), nil
         end
     end
     
     if http and http.request then
-        print("🔄 Использую http.request")
         local response = http.request({
             Url = url,
             Method = "POST",
@@ -145,20 +117,11 @@ local function sendRequest(endpoint, data)
             },
             Body = json
         })
-        
-        if response then
-            print("📥 Ответ статус: " .. (response.StatusCode or "unknown"))
-            print("📥 Ответ тело: " .. (response.Body or "empty"))
-            
-            if response.StatusCode == 200 then
-                return game:GetService("HttpService"):JSONDecode(response.Body), nil
-            else
-                return nil, "HTTP " .. (response.StatusCode or "unknown")
-            end
+        if response and response.StatusCode == 200 then
+            return game:GetService("HttpService"):JSONDecode(response.Body), nil
         end
     end
     
-    print("🔄 Использую HttpService:RequestAsync")
     local success, response = pcall(function()
         return game:GetService("HttpService"):RequestAsync({
             Url = url,
@@ -170,41 +133,26 @@ local function sendRequest(endpoint, data)
         })
     end)
     
-    if success and response then
-        print("📥 Ответ статус: " .. (response.StatusCode or "unknown"))
-        print("📥 Ответ тело: " .. (response.Body or "empty"))
-        
-        if response.StatusCode == 200 then
-            return game:GetService("HttpService"):JSONDecode(response.Body), nil
-        else
-            return nil, "HTTP " .. (response.StatusCode or "unknown")
-        end
+    if success and response and response.StatusCode == 200 then
+        return game:GetService("HttpService"):JSONDecode(response.Body), nil
     end
     
-    return nil, "No HTTP method available"
+    return nil, "HTTP error"
 end
 
 -- ============================================
 -- 6. GET ЗАПРОС (ДЛЯ СКРИПТА)
 -- ============================================
 local function httpGet(url)
-    print("📤 GET запрос: " .. url)
-    
     if syn and syn.request then
-        local response = syn.request({
-            Url = url,
-            Method = "GET"
-        })
+        local response = syn.request({ Url = url, Method = "GET" })
         if response and response.StatusCode == 200 then
             return response.Body
         end
     end
     
     if http and http.request then
-        local response = http.request({
-            Url = url,
-            Method = "GET"
-        })
+        local response = http.request({ Url = url, Method = "GET" })
         if response and response.StatusCode == 200 then
             return response.Body
         end
@@ -226,12 +174,6 @@ end
 local function activateKey(key)
     local player = game.Players.LocalPlayer
     local execName = getexecutorname and getexecutorname() or "Unknown"
-    
-    print("📡 Активация ключа...")
-    print("   User ID: " .. player.UserId)
-    print("   User: " .. player.Name)
-    print("   Injector: " .. execName)
-    print("   Version: " .. CONFIG.VERSION)
     
     local data = {
         key = key,
@@ -277,8 +219,6 @@ end
 -- 8. ЗАГРУЗКА СКРИПТА С СЕРВЕРА
 -- ============================================
 local function loadScriptFromServer(session_token)
-    print("📥 Загрузка скрипта с сервера...")
-    
     local player = game.Players.LocalPlayer
     local userId = player.UserId
     
@@ -291,116 +231,59 @@ local function loadScriptFromServer(session_token)
     
     local raw_response = httpGet(url)
     if not raw_response then
-        print("❌ Ошибка загрузки скрипта (пустой ответ)")
+        print("❌ Ошибка загрузки скрипта")
         return false
     end
-    
-    print("🔴 RAW RESPONSE (первые 200 символов):")
-    print(raw_response:sub(1, 200))
     
     local response_data = game:GetService("HttpService"):JSONDecode(raw_response)
-    if not response_data then
-        print("❌ Ошибка парсинга JSON")
-        return false
-    end
-    
-    if response_data.status ~= "success" then
-        print("❌ Ошибка ответа сервера: " .. (response_data.detail or "unknown"))
+    if not response_data or response_data.status ~= "success" then
+        print("❌ Ошибка ответа сервера")
         return false
     end
     
     local encrypted_b64 = response_data.script
     if not encrypted_b64 then
-        print("❌ Нет поля 'script' в ответе")
+        print("❌ Нет поля 'script'")
         return false
     end
     
-    print("🔴 ENCRYPTED B64 (первые 100 символов):")
-    print(encrypted_b64:sub(1, 100))
-    print("🔴 ENCRYPTED B64 ДЛИНА: " .. #encrypted_b64)
-    
-    -- ============================================
-    -- ТЕСТ BASE64 ДЕКОДЕРА
-    -- ============================================
-    print("🔴 ТЕСТ BASE64 ДЕКОДЕРА:")
-    
+    -- Декодируем Base64
     local encrypted_bytes = nil
     
-    -- Пробуем crypt.base64decode
     if crypt and crypt.base64decode then
         local success, result = pcall(function()
             return crypt.base64decode(encrypted_b64)
         end)
-        print("🔴 crypt.base64decode success: " .. tostring(success))
         if success then
-            print("🔴 crypt.base64decode type: " .. type(result))
-            print("🔴 crypt.base64decode length: " .. tostring(#result))
-            if #result > 0 then
-                local hex = {}
-                for i = 1, math.min(16, #result) do
-                    hex[i] = string.format("%02X", string.byte(result, i))
-                end
-                print("🔴 crypt.base64decode HEX: " .. table.concat(hex, " "))
-                encrypted_bytes = result
-            end
+            encrypted_bytes = result
         end
     end
     
-    -- Пробуем syn.crypt.base64.decode
     if not encrypted_bytes and syn and syn.crypt and syn.crypt.base64 and syn.crypt.base64.decode then
         local success, result = pcall(function()
             return syn.crypt.base64.decode(encrypted_b64)
         end)
-        print("🔴 syn.crypt.base64.decode success: " .. tostring(success))
         if success then
-            print("🔴 syn.crypt.base64.decode type: " .. type(result))
-            print("🔴 syn.crypt.base64.decode length: " .. tostring(#result))
-            if #result > 0 then
-                local hex = {}
-                for i = 1, math.min(16, #result) do
-                    hex[i] = string.format("%02X", string.byte(result, i))
-                end
-                print("🔴 syn.crypt.base64.decode HEX: " .. table.concat(hex, " "))
-                encrypted_bytes = result
-            end
+            encrypted_bytes = result
         end
     end
     
-    -- Пробуем base64.decode
     if not encrypted_bytes and base64 and base64.decode then
         local success, result = pcall(function()
             return base64.decode(encrypted_b64)
         end)
-        print("🔴 base64.decode success: " .. tostring(success))
         if success then
-            print("🔴 base64.decode type: " .. type(result))
-            print("🔴 base64.decode length: " .. tostring(#result))
-            if #result > 0 then
-                local hex = {}
-                for i = 1, math.min(16, #result) do
-                    hex[i] = string.format("%02X", string.byte(result, i))
-                end
-                print("🔴 base64.decode HEX: " .. table.concat(hex, " "))
-                encrypted_bytes = result
-            end
+            encrypted_bytes = result
         end
     end
     
     if not encrypted_bytes then
-        print("❌ Нет доступного Base64 декодера!")
+        print("❌ Ошибка декодирования Base64")
         return false
     end
     
-    -- ============================================
-    -- XOR РАСШИФРОВКА
-    -- ============================================
-    print("🔴 XOR РАСШИФРОВКА:")
-    print("🔴 encrypted_bytes type: " .. type(encrypted_bytes))
-    print("🔴 encrypted_bytes length: " .. tostring(#encrypted_bytes))
-    
+    -- XOR расшифровка
     local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
-    print("🔴 KEY: " .. key)
-    
     local decrypted = ""
     for i = 1, #encrypted_bytes do
         local byte = string.byte(encrypted_bytes, i)
@@ -408,40 +291,7 @@ local function loadScriptFromServer(session_token)
         decrypted = decrypted .. string.char(bit32.bxor(byte, keyByte))
     end
     
-    -- ============================================
-    -- ПРОВЕРКА ТИПА decrypted
-    -- ============================================
-    print("🔴 ПРОВЕРКА decrypted:")
-    print("🔴 decrypted type: " .. type(decrypted))
-    print("🔴 decrypted length: " .. tostring(#decrypted))
-    
-    print("🔴 decrypted repr (первые 80 символов):")
-    print(repr(decrypted:sub(1, 80)))
-    
-    local hex_bytes = {}
-    for i = 1, math.min(16, #decrypted) do
-        hex_bytes[i] = string.format("%02X", string.byte(decrypted, i))
-    end
-    print("🔴 HEX BYTES (первые 16): " .. table.concat(hex_bytes, " "))
-    
-    -- ============================================
-    -- ПРОВЕРКА loadstring
-    -- ============================================
-    print("🔴 ПРОВЕРКА loadstring:")
-    print("🔴 decrypted is string: " .. tostring(type(decrypted) == "string"))
-    
-    local func, err = loadstring(decrypted)
-    print("🔴 loadstring func: " .. tostring(func))
-    print("🔴 loadstring err: " .. tostring(err))
-    
-    if not func then
-        print("❌ Ошибка компиляции: " .. (err or "unknown"))
-        return false
-    end
-    
-    -- ============================================
     -- keyData
-    -- ============================================
     local saved = loadData()
     local keyData = nil
     
@@ -454,8 +304,6 @@ local function loadScriptFromServer(session_token)
             expirationDate = saved.expirationDate,
             session_token = saved.session_token
         }
-        print("📅 Дата активации: " .. os.date("%d.%m.%Y %H:%M", saved.activationDate))
-        print("📅 Дата истечения: " .. os.date("%d.%m.%Y %H:%M", saved.expirationDate))
     else
         local currentTime = os.time()
         keyData = {
@@ -466,7 +314,12 @@ local function loadScriptFromServer(session_token)
             expirationDate = currentTime + (86400 * 7),
             session_token = session_token
         }
-        print("⚠️ keyData создан из session_token")
+    end
+    
+    local func, err = loadstring(decrypted)
+    if not func then
+        print("❌ Ошибка компиляции: " .. (err or "unknown"))
+        return false
     end
     
     print("✅ Скрипт загружен!")
@@ -475,26 +328,7 @@ local function loadScriptFromServer(session_token)
 end
 
 -- ============================================
--- 9. ПАРСИНГ ДАТЫ
--- ============================================
-local function parseDate(dateString)
-    if not dateString then return nil end
-    local year, month, day, hour, minute, second = dateString:match("(%d+)-(%d+)-(%d+)[T ](%d+):(%d+):(%d+)")
-    if year and month and day and hour and minute and second then
-        return os.time({
-            year = tonumber(year),
-            month = tonumber(month),
-            day = tonumber(day),
-            hour = tonumber(hour),
-            min = tonumber(minute),
-            sec = tonumber(second)
-        })
-    end
-    return nil
-end
-
--- ============================================
--- 10. GUI ВВОДА КЛЮЧА
+-- 9. GUI ВВОДА КЛЮЧА
 -- ============================================
 local function showGUI()
     local player = game.Players.LocalPlayer
@@ -647,7 +481,7 @@ local function showGUI()
 end
 
 -- ============================================
--- 11. ЗАПУСК
+-- 10. ЗАПУСК
 -- ============================================
 print("📅 " .. os.date("%Y-%m-%d %H:%M:%S"))
 
@@ -660,21 +494,50 @@ end
 print("👤 User ID: " .. player.UserId)
 print("👤 User: " .. player.Name)
 
+-- ✅ Проверяем сохраненный ключ
 local saved = loadData()
+
 if saved and saved.session_token and saved.userId == player.UserId then
     print("🔑 Найден сохраненный ключ")
     
+    -- Проверяем, не истек ли ключ
     if saved.expires_at then
         local exp = parseDate(saved.expires_at)
         if exp and os.time() >= exp then
             print("⚠️ Срок истек, требуется повторная активация")
+            if writeFile then
+                writeFile(CONFIG.SAVE_FILE, "")
+                print("🗑️ Старый ключ удален из сохранения")
+            end
             showGUI()
             return
         end
     end
     
-    print("📥 Загрузка скрипта...")
-    loadScriptFromServer(saved.session_token)
+    -- Проверяем сессию на сервере
+    print("📥 Проверка сессии на сервере...")
+    local sessionData = {
+        userId = player.UserId,
+        session = saved.session_token,
+        executor = getexecutorname and getexecutorname() or "Unknown",
+        version = CONFIG.VERSION,
+        gameId = game.GameId or 0,
+        placeId = game.PlaceId or 0
+    }
+    
+    local sessionResponse, sessionErr = sendRequest("/session", sessionData)
+    
+    if sessionResponse and sessionResponse.status == "success" then
+        print("✅ Сессия валидна, загрузка скрипта...")
+        loadScriptFromServer(saved.session_token)
+    else
+        print("⚠️ Сессия невалидна или истекла, требуется повторная активация")
+        if writeFile then
+            writeFile(CONFIG.SAVE_FILE, "")
+            print("🗑️ Невалидная сессия удалена")
+        end
+        showGUI()
+    end
 else
     print("🔑 Требуется активация")
     showGUI()
