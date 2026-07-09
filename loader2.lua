@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.1
--- ФИНАЛЬНАЯ ВЕРСИЯ С ПРОВЕРКОЙ КЛЮЧА
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.2
+-- ИСПРАВЛЕННОЕ СОХРАНЕНИЕ
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.1")
+print("🔧 Загрузка AuraCheats v5.2")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -47,23 +47,33 @@ local function saveData(data)
         return game:GetService("HttpService"):JSONEncode(data)
     end)
     if success and json then
-        return writeFile(CONFIG.SAVE_FILE, json)
+        local result = writeFile(CONFIG.SAVE_FILE, json)
+        print("🔴 Файл сохранен: " .. tostring(result))
+        print("🔴 Данные: " .. json)
+        return result
     end
     return false
 end
 
 local function loadData()
     if isFile(CONFIG.SAVE_FILE) then
+        print("🔴 Файл существует: " .. CONFIG.SAVE_FILE)
         local success, data = pcall(function()
             local content = readFile(CONFIG.SAVE_FILE)
+            print("🔴 Содержимое файла: " .. tostring(content))
             if content then
                 return game:GetService("HttpService"):JSONDecode(content)
             end
             return nil
         end)
         if success and data then
+            print("🔴 Данные загружены")
             return data
+        else
+            print("🔴 Ошибка загрузки данных")
         end
+    else
+        print("🔴 Файл НЕ существует: " .. CONFIG.SAVE_FILE)
     end
     return nil
 end
@@ -175,6 +185,12 @@ local function activateKey(key)
     local player = game.Players.LocalPlayer
     local execName = getexecutorname and getexecutorname() or "Unknown"
     
+    print("📡 Активация ключа...")
+    print("   User ID: " .. player.UserId)
+    print("   User: " .. player.Name)
+    print("   Injector: " .. execName)
+    print("   Version: " .. CONFIG.VERSION)
+    
     local data = {
         key = key,
         userId = player.UserId,
@@ -219,6 +235,8 @@ end
 -- 8. ЗАГРУЗКА СКРИПТА С СЕРВЕРА
 -- ============================================
 local function loadScriptFromServer(session_token)
+    print("📥 Загрузка скрипта с сервера...")
+    
     local player = game.Players.LocalPlayer
     local userId = player.UserId
     
@@ -304,6 +322,8 @@ local function loadScriptFromServer(session_token)
             expirationDate = saved.expirationDate,
             session_token = saved.session_token
         }
+        print("📅 Дата активации: " .. os.date("%d.%m.%Y %H:%M", saved.activationDate))
+        print("📅 Дата истечения: " .. os.date("%d.%m.%Y %H:%M", saved.expirationDate))
     else
         local currentTime = os.time()
         keyData = {
@@ -314,6 +334,7 @@ local function loadScriptFromServer(session_token)
             expirationDate = currentTime + (86400 * 7),
             session_token = session_token
         }
+        print("⚠️ keyData создан из session_token")
     end
     
     local func, err = loadstring(decrypted)
@@ -451,13 +472,18 @@ local function showGUI()
                 status.Text = "✅ Ключ активирован!"
                 status.TextColor3 = Color3.fromRGB(100, 255, 100)
                 
+                -- Сохраняем ВСЕ данные
+                local exp = parseDate(result.expires_at)
+                print("🔴 EXPIRES_AT: " .. tostring(result.expires_at))
+                print("🔴 PARSED EXP: " .. tostring(exp))
+                
                 saveData({
                     key = key,
                     userId = result.userId,
                     expires_at = result.expires_at,
                     session_token = result.session_token,
                     activationDate = os.time(),
-                    expirationDate = parseDate(result.expires_at)
+                    expirationDate = exp or (os.time() + 86400 * 7)
                 })
                 
                 task.wait(1)
@@ -499,6 +525,11 @@ local saved = loadData()
 
 if saved and saved.session_token and saved.userId == player.UserId then
     print("🔑 Найден сохраненный ключ")
+    print("🔑 KEY: " .. tostring(saved.key))
+    print("🔑 SESSION: " .. tostring(saved.session_token))
+    print("🔑 EXPIRES: " .. tostring(saved.expires_at))
+    print("🔑 ACTIVATION DATE: " .. tostring(saved.activationDate))
+    print("🔑 EXPIRATION DATE: " .. tostring(saved.expirationDate))
     
     -- Проверяем, не истек ли ключ
     if saved.expires_at then
