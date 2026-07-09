@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.8
--- ПРОВЕРКА КЛЮЧА, А НЕ СЕССИИ
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.9
+-- ИСПРАВЛЕННАЯ ПРОВЕРКА КЛЮЧА
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.8")
+print("🔧 Загрузка AuraCheats v5.9")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -295,10 +295,18 @@ local function checkKeyOnServer(key)
         return false, nil
     end
     
-    print("📥 Ответ: " .. response.status)
+    print("📥 Ответ статус: " .. response.status)
+    print("📥 Ответ сообщение: " .. (response.message or "none"))
     
+    -- ✅ Если ключ уже активирован — это успех!
     if response.status == "success" then
-        -- Ключ активен! Создаем сессию
+        -- Ключ активирован только что
+        return true, response
+    elseif response.status == "error" and response.message == "Key already activated" then
+        -- ✅ Ключ уже был активирован ранее — это тоже успех!
+        print("✅ Ключ уже активирован, создаем сессию...")
+        
+        -- Создаем сессию для этого ключа
         local sessionData = {
             userId = player.UserId,
             executor = execName,
@@ -309,14 +317,14 @@ local function checkKeyOnServer(key)
         
         local sessionResponse, sessionErr = sendRequest("/session", sessionData)
         if not sessionResponse or sessionResponse.status ~= "success" then
-            print("❌ Ошибка создания сессии")
+            print("❌ Ошибка создания сессии: " .. (sessionErr or "unknown"))
             return false, nil
         end
         
         return true, {
             key = key,
             userId = player.UserId,
-            expires_at = response.expires_at,
+            expires_at = nil,
             session_token = sessionResponse.session
         }
     else
@@ -618,7 +626,33 @@ print("👤 User ID: " .. player.UserId)
 print("👤 User: " .. player.Name)
 
 -- ============================================
--- ✅ ГЛАВНАЯ ЛОГИКА: ПРОВЕРКА КЛЮЧА НА СЕРВЕРЕ
+-- ДИАГНОСТИКА
+-- ============================================
+print("🔴 ДИАГНОСТИКА ФАЙЛОВ:")
+print("🔴 isFileUniversal: " .. tostring(isFileUniversal(CONFIG.SAVE_FILE)))
+if isFileUniversal(CONFIG.SAVE_FILE) then
+    local content = readFileUniversal(CONFIG.SAVE_FILE)
+    print("🔴 Содержимое файла: " .. tostring(content))
+    if content then
+        local success, data = pcall(function()
+            return game:GetService("HttpService"):JSONDecode(content)
+        end)
+        if success then
+            print("🔴 Распарсенные данные:")
+            print("🔴   key: " .. tostring(data.key))
+            print("🔴   userId: " .. tostring(data.userId))
+            print("🔴   session_token: " .. tostring(data.session_token))
+        else
+            print("🔴 Ошибка парсинга JSON")
+        end
+    end
+else
+    print("🔴 Файл НЕ СУЩЕСТВУЕТ")
+end
+print("🔴 _G.AuraCheatsKeyData: " .. tostring(_G.AuraCheatsKeyData))
+
+-- ============================================
+-- ✅ ГЛАВНАЯ ЛОГИКА: ПРОВЕРКА КЛЮЧА
 -- ============================================
 
 local saved = loadData()
@@ -626,21 +660,17 @@ local saved = loadData()
 if saved and saved.key and saved.userId == player.UserId then
     print("🔑 Найден сохраненный ключ: " .. saved.key)
     
-    -- ============================================
-    -- ✅ ПРОВЕРЯЕМ КЛЮЧ НА СЕРВЕРЕ
-    -- ============================================
     local ok, result = checkKeyOnServer(saved.key)
     
     if ok then
         print("✅ Ключ валиден, загрузка скрипта...")
-        -- Обновляем сохранение (на случай если дата изменилась)
         saveData({
             key = saved.key,
             userId = saved.userId,
-            expires_at = result.expires_at,
+            expires_at = result.expires_at or saved.expires_at,
             session_token = result.session_token,
             activationDate = saved.activationDate,
-            expirationDate = parseDate(result.expires_at) or saved.expirationDate
+            expirationDate = saved.expirationDate
         })
         loadScriptFromServer(result.session_token)
     else
