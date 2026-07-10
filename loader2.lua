@@ -1,9 +1,8 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.10 (С ОТЛАДКОЙ)
--- FIX: Key already activated → УСПЕХ
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.10 (FIX: nil session_token)
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.10 (ОТЛАДОЧНАЯ)")
+print("🔧 Загрузка AuraCheats v5.10")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -298,11 +297,19 @@ local function checkKeyOnServer(key)
     print("📥 Ответ статус: " .. response.status)
     print("📥 Ответ сообщение: " .. (response.message or "none"))
     
+    -- ============================================
+    -- ✅ ЛОГИКА ПРОВЕРКИ:
+    -- "Key already activated" → УСПЕХ
+    -- Любая другая ошибка → НЕ УСПЕХ
+    -- ============================================
+    
+    -- 1. Если ключ активирован только что
     if response.status == "success" then
         print("✅ Ключ активирован!")
         return true, response
     end
     
+    -- 2. Если ключ уже был активирован ранее → ЭТО УСПЕХ!
     if response.status == "error" and response.message == "Key already activated" then
         print("✅ Ключ уже активирован, создаем сессию...")
         
@@ -328,6 +335,7 @@ local function checkKeyOnServer(key)
         }
     end
     
+    -- 3. Все остальные ошибки → НЕ УСПЕХ
     print("❌ Ключ неактивен: " .. (response.message or "unknown"))
     return false, nil
 end
@@ -340,13 +348,27 @@ local function activateKey(key)
 end
 
 -- ============================================
--- 11. ЗАГРУЗКА СКРИПТА С СЕРВЕРА (С ОТЛАДКОЙ)
+-- 11. ЗАГРУЗКА СКРИПТА С СЕРВЕРА (FIX: nil session_token)
 -- ============================================
 local function loadScriptFromServer(session_token)
     print("📥 Загрузка скрипта с сервера...")
     
     local player = game.Players.LocalPlayer
+    if not player then
+        print("❌ Нет LocalPlayer")
+        return false
+    end
+    
     local userId = player.UserId
+    if not userId then
+        print("❌ userId = nil")
+        return false
+    end
+    
+    if not session_token or session_token == "" then
+        print("❌ session_token пустой или nil")
+        return false
+    end
     
     local url = string.format(
         "%s/script?session=%s&user_id=%s",
@@ -358,53 +380,22 @@ local function loadScriptFromServer(session_token)
     print("📡 URL: " .. url)
     
     local raw_response = httpGet(url)
-    
-    -- ОТЛАДКА: проверяем что получили
-    print("📥 raw_response тип: " .. type(raw_response))
-    if raw_response then
-        print("📥 raw_response длина: " .. #raw_response)
-        print("📥 raw_response первые 200 символов: " .. string.sub(raw_response, 1, 200))
-    else
-        print("❌ raw_response = nil")
-        return false
-    end
-    
     if not raw_response then
         print("❌ Ошибка загрузки скрипта")
         return false
     end
     
-    local response_data
-    local success, err = pcall(function()
-        response_data = game:GetService("HttpService"):JSONDecode(raw_response)
-    end)
-    
-    if not success then
-        print("❌ Ошибка парсинга JSON: " .. tostring(err))
-        print("📥 Ответ сервера: " .. string.sub(raw_response, 1, 500))
-        return false
-    end
-    
-    if not response_data then
-        print("❌ response_data = nil")
-        return false
-    end
-    
-    print("📥 response_data.status: " .. (response_data.status or "nil"))
-    
-    if response_data.status ~= "success" then
-        print("❌ Ошибка ответа сервера: " .. (response_data.message or "unknown"))
+    local response_data = game:GetService("HttpService"):JSONDecode(raw_response)
+    if not response_data or response_data.status ~= "success" then
+        print("❌ Ошибка ответа сервера")
         return false
     end
     
     local encrypted_b64 = response_data.script
     if not encrypted_b64 then
         print("❌ Нет поля 'script'")
-        print("📥 response_data: " .. game:GetService("HttpService"):JSONEncode(response_data))
         return false
     end
-    
-    print("📥 encrypted_b64 длина: " .. #encrypted_b64)
     
     -- Декодируем Base64
     local encrypted_bytes = nil
@@ -441,8 +432,6 @@ local function loadScriptFromServer(session_token)
         return false
     end
     
-    print("📥 encrypted_bytes длина: " .. #encrypted_bytes)
-    
     -- XOR расшифровка
     local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
     local decrypted = ""
@@ -450,21 +439,6 @@ local function loadScriptFromServer(session_token)
         local byte = string.byte(encrypted_bytes, i)
         local keyByte = string.byte(key, (i - 1) % #key + 1)
         decrypted = decrypted .. string.char(bit32.bxor(byte, keyByte))
-    end
-    
-    print("📥 decrypted длина: " .. #decrypted)
-    print("📥 decrypted первые 200 символов: " .. string.sub(decrypted, 1, 200))
-    
-    -- ОТЛАДКА: сохраняем расшифрованный скрипт
-    if writefile then
-        local success, err = pcall(function()
-            writefile("debug_decrypted.lua", decrypted)
-        end)
-        if success then
-            print("📁 Расшифрованный скрипт сохранен в debug_decrypted.lua")
-        else
-            print("⚠️ Не удалось сохранить debug_decrypted.lua: " .. tostring(err))
-        end
     end
     
     -- keyData
@@ -495,22 +469,9 @@ local function loadScriptFromServer(session_token)
         print("⚠️ keyData создан из session_token")
     end
     
-    -- ПРОВЕРКА: decrypted не nil и не пустой
-    if not decrypted or decrypted == "" then
-        print("❌ decrypted пустой или nil!")
-        return false
-    end
-    
-    -- ПРОВЕРКА: начинается ли с "--"
-    if string.sub(decrypted, 1, 2) ~= "--" then
-        print("⚠️ decrypted не начинается с '--', возможно это не Lua код")
-        print("📥 Первые 50 символов: " .. string.sub(decrypted, 1, 50))
-    end
-    
     local func, err = loadstring(decrypted)
     if not func then
         print("❌ Ошибка компиляции: " .. (err or "unknown"))
-        print("📥 decrypted первые 500 символов: " .. string.sub(decrypted, 1, 500))
         return false
     end
     
@@ -707,9 +668,9 @@ if isFileUniversal(CONFIG.SAVE_FILE) then
         else
             print("🔴 Ошибка парсинга JSON")
         end
-    else
-        print("🔴 Файл НЕ СУЩЕСТВУЕТ")
     end
+else
+    print("🔴 Файл НЕ СУЩЕСТВУЕТ")
 end
 print("🔴 _G.AuraCheatsKeyData: " .. tostring(_G.AuraCheatsKeyData))
 
