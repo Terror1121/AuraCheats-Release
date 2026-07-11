@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.14 (ОПТИМИЗИРОВАННЫЙ)
--- FIX: Задержки, стабильность, совместимость
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.16 (ОПТИМИЗИРОВАННЫЙ)
+-- FIX: Однократное предупреждение о версии
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.15")
+print("🔧 Загрузка AuraCheats v5.16")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -214,7 +214,82 @@ local function httpGet(url, timeout)
 end
 
 -- ============================================
--- 9. ПРОВЕРКА КЛЮЧА НА СЕРВЕРЕ
+-- 9. ПРОВЕРКА ВЕРСИИ (С ОДНОКРАТНЫМ ПРЕДУПРЕЖДЕНИЕМ)
+-- ============================================
+local versionWarningShown = false
+
+local function getCachedVersion()
+    if isFileUniversal(CONFIG.SAVE_FILE .. "_version") then
+        local success, data = pcall(function()
+            return readFileUniversal(CONFIG.SAVE_FILE .. "_version")
+        end)
+        if success and data then
+            return data:gsub("%s+", "")
+        end
+    end
+    return nil
+end
+
+local function saveVersionCache(version)
+    pcall(function()
+        writeFileUniversal(CONFIG.SAVE_FILE .. "_version", version)
+    end)
+end
+
+local function checkVersion()
+    local latestVersion = getCachedVersion()
+    
+    if not latestVersion then
+        local success, response = pcall(function()
+            return game:HttpGet(CONFIG.VERSION_URL)
+        end)
+        if success and response then
+            latestVersion = response:gsub("%s+", "")
+            saveVersionCache(latestVersion)
+        end
+    end
+    
+    if not latestVersion then
+        print("⚠️ Не удалось проверить версию. Пропускаем проверку.")
+        return true
+    end
+    
+    local function splitVersion(v)
+        local parts = {}
+        for part in v:gmatch("[^.]+") do
+            table.insert(parts, tonumber(part) or 0)
+        end
+        return parts
+    end
+    
+    local current = splitVersion(CONFIG.VERSION)
+    local latest = splitVersion(latestVersion)
+    
+    for i = 1, math.max(#current, #latest) do
+        local c = current[i] or 0
+        local l = latest[i] or 0
+        if c ~= l then
+            if c < l and not versionWarningShown then
+                versionWarningShown = true
+                print("")
+                print("⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️")
+                print("⚠️  ВНИМАНИЕ! ВЕРСИЯ ЧИТА УСТАРЕЛА!")
+                print("⚠️  Текущая версия: " .. CONFIG.VERSION)
+                print("⚠️  Последняя версия: " .. latestVersion)
+                print("⚠️  Обновите чит для стабильной работы!")
+                print("⚠️  Скачайте новую версию у разработчика.")
+                print("⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️")
+                print("")
+            end
+            return true
+        end
+    end
+    
+    return true
+end
+
+-- ============================================
+-- 10. ПРОВЕРКА КЛЮЧА НА СЕРВЕРЕ
 -- ============================================
 local function checkKeyOnServer(key)
     print("📡 Проверка ключа на сервере...")
@@ -286,14 +361,14 @@ local function checkKeyOnServer(key)
 end
 
 -- ============================================
--- 10. АКТИВАЦИЯ КЛЮЧА
+-- 11. АКТИВАЦИЯ КЛЮЧА
 -- ============================================
 local function activateKey(key)
     return checkKeyOnServer(key)
 end
 
 -- ============================================
--- 11. ЗАГРУЗКА СКРИПТА С СЕРВЕРА
+-- 12. ЗАГРУЗКА СКРИПТА С СЕРВЕРА
 -- ============================================
 local function loadScriptFromServer(session_token)
     print("📥 Загрузка скрипта с сервера...")
@@ -392,7 +467,7 @@ local function loadScriptFromServer(session_token)
     
     print("✅ Скрипт загружен!")
     
-    -- ✅ ОПТИМИЗАЦИЯ: ЗАДЕРЖКА ПЕРЕД ЗАПУСКОМ
+    -- ОПТИМИЗАЦИЯ: ЗАДЕРЖКА ПЕРЕД ЗАПУСКОМ
     print("⏳ Запуск через 1.5 секунды...")
     task.wait(1.5)
     
@@ -408,7 +483,7 @@ local function loadScriptFromServer(session_token)
 end
 
 -- ============================================
--- 12. GUI ВВОДА КЛЮЧА (ОПТИМИЗИРОВАННЫЙ)
+-- 13. GUI ВВОДА КЛЮЧА
 -- ============================================
 local function showGUI(errorMessage)
     local player = game.Players.LocalPlayer
@@ -576,7 +651,7 @@ local function showGUI(errorMessage)
 end
 
 -- ============================================
--- 13. ЗАПУСК
+-- 14. ЗАПУСК
 -- ============================================
 print("📅 " .. os.date("%Y-%m-%d %H:%M:%S"))
 
@@ -588,6 +663,13 @@ end
 
 print("👤 User ID: " .. player.UserId)
 print("👤 User: " .. player.Name)
+
+-- ============================================
+-- ПРОВЕРКА ВЕРСИИ
+-- ============================================
+if not checkVersion() then
+    print("❌ Ошибка проверки версии")
+end
 
 -- ============================================
 -- ДИАГНОСТИКА
