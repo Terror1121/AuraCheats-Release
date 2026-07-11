@@ -1,12 +1,13 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.11
--- ЗЕРКАЛО ДЛЯ РОССИИ (Githack)
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.12
+-- FIX: "Key already activated" → УСПЕХ!
+-- FIX: Истекший ключ → ОКНО АКТИВАЦИИ
 -- ============================================
 
 print("🔧 Загрузка AuraCheats v5.12")
 
 -- ============================================
--- 1. КОНФИГУРАЦИЯ С ЗЕРКАЛАМИ
+-- 1. КОНФИГУРАЦИЯ
 -- ============================================
 local CONFIG = {
     API_URL = "https://aura-cheats-bot.onrender.com/api/v6",
@@ -247,7 +248,6 @@ end
 -- 8. GET ЗАПРОС (УНИВЕРСАЛЬНЫЙ) — С ЗЕРКАЛОМ
 -- ============================================
 local function httpGet(url)
-    -- Если URL содержит github.com/raw, меняем на зеркало
     if url:find("raw.githubusercontent.com") then
         url = url:gsub("raw.githubusercontent.com", "raw.githack.com")
         print("🔴 Использовано зеркало: " .. url)
@@ -278,7 +278,7 @@ local function httpGet(url)
 end
 
 -- ============================================
--- 9. ПРОВЕРКА КЛЮЧА НА СЕРВЕРЕ
+-- 9. ПРОВЕРКА КЛЮЧА НА СЕРВЕРЕ (ИСПРАВЛЕННАЯ)
 -- ============================================
 local function checkKeyOnServer(key)
     print("📡 Проверка ключа на сервере...")
@@ -307,13 +307,56 @@ local function checkKeyOnServer(key)
     print("📥 Ответ сообщение: " .. (response.message or "none"))
     print("📥 Ответ содержит session: " .. tostring(response.session_token))
     
-    if response.status == "success" then
-        print("✅ Ключ активирован!")
+    -- ============================================
+    -- ✅ ЛОГИКА ПРОВЕРКИ:
+    -- 1. session_token есть → УСПЕХ
+    -- 2. "Key already activated" → СОЗДАЕМ СЕССИЮ
+    -- 3. "Key expired" → ОШИБКА → ОКНО АКТИВАЦИИ
+    -- 4. Любая другая ошибка → ОКНО АКТИВАЦИИ
+    -- ============================================
+    
+    -- ✅ 1. Если есть session_token → УСПЕХ!
+    if response.session_token then
+        print("✅ Сессия получена!")
         return true, response
     end
     
+    -- ✅ 2. Если ключ уже активирован → СОЗДАЕМ СЕССИЮ
+    if response.status == "error" and response.message == "Key already activated" then
+        print("✅ Ключ уже активирован, создаем сессию через /session...")
+        
+        local sessionData = {
+            userId = player.UserId,
+            executor = execName,
+            version = CONFIG.VERSION,
+            gameId = game.GameId or 0,
+            placeId = game.PlaceId or 0
+        }
+        
+        local sessionResponse, sessionErr = sendRequest("/session", sessionData)
+        if not sessionResponse or sessionResponse.status ~= "success" then
+            print("❌ Ошибка создания сессии: " .. (sessionErr or "unknown"))
+            return false, nil
+        end
+        
+        print("✅ Сессия создана: " .. tostring(sessionResponse.session))
+        
+        return true, {
+            session_token = sessionResponse.session,
+            expires_at = nil,
+            userId = player.UserId
+        }
+    end
+    
+    -- ❌ 3. Если ключ истек → ОШИБКА → ПОКАЗЫВАЕМ ОКНО АКТИВАЦИИ
+    if response.status == "error" and response.message == "Key expired" then
+        print("❌ Ключ истек! Нужна активация нового ключа.")
+        return false, "❌ Срок действия ключа истек. Введите новый ключ."
+    end
+    
+    -- ❌ 4. Все остальные ошибки → ОШИБКА → ПОКАЗЫВАЕМ ОКНО АКТИВАЦИИ
     print("❌ Ключ неактивен: " .. (response.message or "unknown"))
-    return false, nil
+    return false, response.message or "❌ Неизвестная ошибка"
 end
 
 -- ============================================
@@ -443,7 +486,7 @@ end
 -- ============================================
 -- 12. GUI ВВОДА КЛЮЧА
 -- ============================================
-local function showGUI()
+local function showGUI(errorMessage)
     local player = game.Players.LocalPlayer
     if not player then return end
     
@@ -459,8 +502,8 @@ local function showGUI()
     bg.Parent = gui
     
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 400, 0, 300)
-    frame.Position = UDim2.new(0.5, -200, 0.5, -150)
+    frame.Size = UDim2.new(0, 400, 0, 320)
+    frame.Position = UDim2.new(0.5, -200, 0.5, -160)
     frame.BackgroundColor3 = Color3.fromRGB(25, 25, 40)
     frame.BorderSizePixel = 0
     frame.Parent = gui
@@ -507,18 +550,18 @@ local function showGUI()
     inputCorner.Parent = input
     
     local status = Instance.new("TextLabel")
-    status.Size = UDim2.new(1, -40, 0, 25)
+    status.Size = UDim2.new(1, -40, 0, 30)
     status.Position = UDim2.new(0, 20, 0, 155)
     status.BackgroundTransparency = 1
-    status.Text = "Готов к активации"
-    status.TextColor3 = Color3.fromRGB(180, 180, 200)
+    status.Text = errorMessage or "Готов к активации"
+    status.TextColor3 = errorMessage and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(180, 180, 200)
     status.TextSize = 12
     status.Font = Enum.Font.Gotham
     status.Parent = frame
     
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0, 200, 0, 45)
-    btn.Position = UDim2.new(0.5, -100, 0, 195)
+    btn.Position = UDim2.new(0.5, -100, 0, 205)
     btn.BackgroundColor3 = Color3.fromRGB(50, 50, 200)
     btn.BorderSizePixel = 0
     btn.Text = "АКТИВИРОВАТЬ"
@@ -533,7 +576,7 @@ local function showGUI()
     
     local support = Instance.new("TextLabel")
     support.Size = UDim2.new(1, -40, 0, 20)
-    support.Position = UDim2.new(0, 20, 0, 260)
+    support.Position = UDim2.new(0, 20, 0, 270)
     support.BackgroundTransparency = 1
     support.Text = "💬 discord.gg/XPwdHN4jHf"
     support.TextColor3 = Color3.fromRGB(150, 150, 180)
@@ -590,11 +633,17 @@ local function showGUI()
                 end
             else
                 attempts = attempts + 1
-                status.Text = "❌ " .. result
+                status.Text = "❌ " .. tostring(result)
                 status.TextColor3 = Color3.fromRGB(255, 80, 80)
                 btn.Active = true
                 btn.BackgroundColor3 = Color3.fromRGB(50, 50, 200)
                 btn.Text = "АКТИВИРОВАТЬ"
+                
+                if attempts >= 3 then
+                    status.Text = "❌ Превышено количество попыток!"
+                    btn.Active = false
+                    btn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+                end
             end
         end)
     end
@@ -670,11 +719,11 @@ if saved and saved.key and saved.userId == player.UserId then
             loadScriptFromServer(result.session_token)
         else
             print("❌ Нет session_token в ответе сервера!")
-            showGUI()
+            showGUI("❌ Ошибка получения сессии")
         end
     else
         print("❌ Ключ невалиден, требуется активация")
-        showGUI()
+        showGUI(tostring(result) or "❌ Ключ неактивен. Введите новый ключ.")
     end
 else
     print("🔑 Требуется активация")
