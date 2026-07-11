@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.16 (ОПТИМИЗИРОВАННЫЙ)
--- FIX: Однократное предупреждение о версии
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.17 (ОПТИМИЗИРОВАННЫЙ)
+-- FIX: GUI Creation Error Handling
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.16")
+print("🔧 Загрузка AuraCheats v5.17")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -483,16 +483,43 @@ local function loadScriptFromServer(session_token)
 end
 
 -- ============================================
--- 13. GUI ВВОДА КЛЮЧА
+-- 13. GUI ВВОДА КЛЮЧА (С ЗАЩИТОЙ ОТ ОШИБОК)
 -- ============================================
 local function showGUI(errorMessage)
     local player = game.Players.LocalPlayer
-    if not player then return
+    if not player then
+        print("❌ Нет игрока")
+        return
+    end
     
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "AuraKeySystem"
-    gui.Parent = player.PlayerGui
-    gui.ResetOnSpawn = false
+    -- ✅ Проверяем PlayerGui
+    if not player.PlayerGui then
+        print("❌ PlayerGui не найден!")
+        return
+    end
+    
+    -- ✅ Удаляем старый GUI
+    local oldGui = player.PlayerGui:FindFirstChild("AuraKeySystem")
+    if oldGui then
+        oldGui:Destroy()
+    end
+    
+    -- ✅ Создаём GUI с защитой
+    local gui = nil
+    local success, result = pcall(function()
+        local newGui = Instance.new("ScreenGui")
+        newGui.Name = "AuraKeySystem"
+        newGui.Parent = player.PlayerGui
+        newGui.ResetOnSpawn = false
+        return newGui
+    end)
+    
+    if not success or not result then
+        print("❌ Не удалось создать GUI: " .. tostring(result))
+        return
+    end
+    
+    gui = result
     
     local bg = Instance.new("Frame")
     bg.Size = UDim2.new(1, 0, 1, 0)
