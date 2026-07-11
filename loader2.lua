@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.17 (ОПТИМИЗИРОВАННЫЙ)
--- FIX: GUI Creation Error Handling
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.18 (ОПТИМИЗИРОВАННЫЙ)
+-- FIX: GUI Creation Error Handling + Syntax
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.17")
+print("🔧 Загрузка AuraCheats v5.18")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -317,13 +317,11 @@ local function checkKeyOnServer(key)
     print("📥 Ответ статус: " .. response.status)
     print("📥 Ответ сообщение: " .. (response.message or "none"))
     
-    -- Если есть session_token → УСПЕХ
     if response.session_token then
         print("✅ Сессия получена!")
         return true, response
     end
     
-    -- Если ключ уже активирован → СОЗДАЕМ СЕССИЮ
     if response.status == "error" and response.message == "Key already activated" then
         print("✅ Ключ уже активирован, создаем сессию...")
         
@@ -350,7 +348,6 @@ local function checkKeyOnServer(key)
         }
     end
     
-    -- Ключ истек → ОКНО АКТИВАЦИИ
     if response.status == "error" and response.message == "Key expired" then
         print("❌ Ключ истек!")
         return false, "❌ Срок действия ключа истек. Введите новый ключ."
@@ -401,7 +398,6 @@ local function loadScriptFromServer(session_token)
         return false
     end
     
-    -- Декодируем Base64
     local encrypted_bytes = nil
     
     local decodeFuncs = {
@@ -423,7 +419,6 @@ local function loadScriptFromServer(session_token)
         return false
     end
     
-    -- XOR расшифровка
     local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
     local decrypted = ""
     for i = 1, #encrypted_bytes do
@@ -432,7 +427,6 @@ local function loadScriptFromServer(session_token)
         decrypted = decrypted .. string.char(bit32.bxor(byte, keyByte))
     end
     
-    -- keyData
     local saved = loadData()
     local keyData = nil
     
@@ -467,7 +461,6 @@ local function loadScriptFromServer(session_token)
     
     print("✅ Скрипт загружен!")
     
-    -- ОПТИМИЗАЦИЯ: ЗАДЕРЖКА ПЕРЕД ЗАПУСКОМ
     print("⏳ Запуск через 1.5 секунды...")
     task.wait(1.5)
     
@@ -492,19 +485,16 @@ local function showGUI(errorMessage)
         return
     end
     
-    -- ✅ Проверяем PlayerGui
     if not player.PlayerGui then
         print("❌ PlayerGui не найден!")
         return
     end
     
-    -- ✅ Удаляем старый GUI
     local oldGui = player.PlayerGui:FindFirstChild("AuraKeySystem")
     if oldGui then
         oldGui:Destroy()
     end
     
-    -- ✅ Создаём GUI с защитой
     local gui = nil
     local success, result = pcall(function()
         local newGui = Instance.new("ScreenGui")
@@ -672,10 +662,13 @@ local function showGUI(errorMessage)
     end
     
     btn.MouseButton1Click:Connect(doActivate)
+    
     input.FocusLost:Connect(function(enter)
-        if enter then doActivate()
+        if enter then
+            doActivate()
+        end
     end)
-end
+end  -- ← закрывает showGUI()
 
 -- ============================================
 -- 14. ЗАПУСК
@@ -691,16 +684,10 @@ end
 print("👤 User ID: " .. player.UserId)
 print("👤 User: " .. player.Name)
 
--- ============================================
--- ПРОВЕРКА ВЕРСИИ
--- ============================================
 if not checkVersion() then
     print("❌ Ошибка проверки версии")
 end
 
--- ============================================
--- ДИАГНОСТИКА
--- ============================================
 print("🔴 ДИАГНОСТИКА ФАЙЛОВ:")
 print("🔴 isFileUniversal: " .. tostring(isFileUniversal(CONFIG.SAVE_FILE)))
 if isFileUniversal(CONFIG.SAVE_FILE) then
@@ -721,9 +708,6 @@ end
 
 print("🔴 _G.AuraCheatsKeyData: " .. tostring(_G.AuraCheatsKeyData))
 
--- ============================================
--- ГЛАВНАЯ ЛОГИКА
--- ============================================
 local saved = loadData()
 
 if saved and saved.key and saved.userId == player.UserId then
