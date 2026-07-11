@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.18 (ОПТИМИЗИРОВАННЫЙ)
--- FIX: GUI Creation Error Handling + Syntax
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.19 (ОПТИМИЗИРОВАННЫЙ)
+-- FIX: Увеличенная задержка перед запуском
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.18")
+print("🔧 Загрузка AuraCheats v5.19")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -461,8 +461,9 @@ local function loadScriptFromServer(session_token)
     
     print("✅ Скрипт загружен!")
     
-    print("⏳ Запуск через 1.5 секунды...")
-    task.wait(1.5)
+    -- ⏳ УВЕЛИЧЕННАЯ ЗАДЕРЖКА ПЕРЕД ЗАПУСКОМ
+    print("⏳ Запуск через 2.5 секунды...")
+    task.wait(2.5)
     
     local execSuccess, execErr = pcall(func, keyData)
     if execSuccess then
@@ -668,7 +669,7 @@ local function showGUI(errorMessage)
             doActivate()
         end
     end)
-end  -- ← закрывает showGUI()
+end
 
 -- ============================================
 -- 14. ЗАПУСК
