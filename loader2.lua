@@ -1,17 +1,20 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.10 (FIX: session_token nil)
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.11
+-- ЗЕРКАЛО ДЛЯ РОССИИ (Githack)
 -- ============================================
 
 print("🔧 Загрузка AuraCheats v5.11")
 
 -- ============================================
--- 1. КОНФИГУРАЦИЯ
+-- 1. КОНФИГУРАЦИЯ С ЗЕРКАЛАМИ
 -- ============================================
 local CONFIG = {
     API_URL = "https://aura-cheats-bot.onrender.com/api/v6",
     SAVE_FILE = "AuraCheatsKeyData",
     ENCRYPT_KEY = "AuraCheats2024",
-    VERSION = "2.2.9"
+    VERSION = "2.2.16",
+    MAIN_URL = "https://raw.githack.com/Terror1121/AuraCheats-Release/main/main.lua",
+    VERSION_URL = "https://raw.githack.com/Terror1121/AuraCheats-Release/main/version.txt"
 }
 
 -- ============================================
@@ -241,9 +244,15 @@ local function sendRequest(endpoint, data)
 end
 
 -- ============================================
--- 8. GET ЗАПРОС (УНИВЕРСАЛЬНЫЙ)
+-- 8. GET ЗАПРОС (УНИВЕРСАЛЬНЫЙ) — С ЗЕРКАЛОМ
 -- ============================================
 local function httpGet(url)
+    -- Если URL содержит github.com/raw, меняем на зеркало
+    if url:find("raw.githubusercontent.com") then
+        url = url:gsub("raw.githubusercontent.com", "raw.githack.com")
+        print("🔴 Использовано зеркало: " .. url)
+    end
+    
     if syn and syn.request then
         local response = syn.request({ Url = url, Method = "GET" })
         if response and response.StatusCode == 200 then
@@ -296,114 +305,32 @@ local function checkKeyOnServer(key)
     
     print("📥 Ответ статус: " .. response.status)
     print("📥 Ответ сообщение: " .. (response.message or "none"))
-    print("📥 Ответ содержит session: " .. tostring(response.session))
+    print("📥 Ответ содержит session: " .. tostring(response.session_token))
     
-    -- ============================================
-    -- ✅ ЛОГИКА ПРОВЕРКИ:
-    -- "Key already activated" → УСПЕХ
-    -- Любая другая ошибка → НЕ УСПЕХ
-    -- ============================================
-    
-    -- 1. Если ключ активирован только что
     if response.status == "success" then
         print("✅ Ключ активирован!")
         return true, response
     end
     
-    -- 2. Если ключ уже был активирован ранее → ЭТО УСПЕХ!
-    if response.status == "error" and response.message == "Key already activated" then
-        print("✅ Ключ уже активирован, создаем сессию...")
-        
-        local sessionData = {
-            userId = player.UserId,
-            executor = execName,
-            version = CONFIG.VERSION,
-            gameId = game.GameId or 0,
-            placeId = game.PlaceId or 0
-        }
-        
-        local sessionResponse, sessionErr = sendRequest("/session", sessionData)
-        
-        if not sessionResponse then
-            print("❌ sessionResponse = nil")
-            return false, nil
-        end
-        
-        if sessionResponse.status ~= "success" then
-            print("❌ Ошибка создания сессии: " .. (sessionResponse.message or "unknown"))
-            return false, nil
-        end
-        
-        print("🔍 sessionResponse.session: " .. tostring(sessionResponse.session))
-        print("🔍 sessionResponse.userId: " .. tostring(sessionResponse.userId))
-        
-        if not sessionResponse.session then
-            print("❌ Сервер не вернул session_token!")
-            return false, nil
-        end
-        
-        return true, {
-            key = key,
-            userId = player.UserId,
-            expires_at = nil,
-            session_token = sessionResponse.session
-        }
-    end
-    
-    -- 3. Все остальные ошибки → НЕ УСПЕХ
     print("❌ Ключ неактивен: " .. (response.message or "unknown"))
     return false, nil
 end
 
 -- ============================================
--- 10. АКТИВАЦИЯ КЛЮЧА (С ОТЛАДКОЙ)
+-- 10. АКТИВАЦИЯ КЛЮЧА
 -- ============================================
 local function activateKey(key)
-    print("🔑 Активация ключа: " .. key)
-    
-    local ok, result = checkKeyOnServer(key)
-    
-    if not ok then
-        print("❌ Активация не удалась")
-        return false, result
-    end
-    
-    print("🔍 Результат активации:")
-    print("   key: " .. tostring(result.key))
-    print("   userId: " .. tostring(result.userId))
-    print("   session_token: " .. tostring(result.session_token))
-    print("   expires_at: " .. tostring(result.expires_at))
-    
-    if not result.session_token then
-        print("❌ session_token отсутствует в ответе сервера!")
-        return false, "❌ Не получен session_token от сервера"
-    end
-    
-    return true, result
+    return checkKeyOnServer(key)
 end
 
 -- ============================================
--- 11. ЗАГРУЗКА СКРИПТА С СЕРВЕРА (FIX: nil session_token)
+-- 11. ЗАГРУЗКА СКРИПТА С СЕРВЕРА
 -- ============================================
 local function loadScriptFromServer(session_token)
     print("📥 Загрузка скрипта с сервера...")
     
     local player = game.Players.LocalPlayer
-    if not player then
-        print("❌ Нет LocalPlayer")
-        return false
-    end
-    
     local userId = player.UserId
-    if not userId then
-        print("❌ userId = nil")
-        return false
-    end
-    
-    if not session_token or session_token == "" then
-        print("❌ session_token пустой или равен нулю")
-        return false
-    end
     
     local url = string.format(
         "%s/script?session=%s&user_id=%s",
@@ -411,8 +338,6 @@ local function loadScriptFromServer(session_token)
         session_token,
         userId
     )
-    
-    print("📡 URL: " .. url)
     
     local raw_response = httpGet(url)
     if not raw_response then
@@ -516,7 +441,7 @@ local function loadScriptFromServer(session_token)
 end
 
 -- ============================================
--- 12. GUI ВВОДА КЛЮЧА (С ОТЛАДКОЙ)
+-- 12. GUI ВВОДА КЛЮЧА
 -- ============================================
 local function showGUI()
     local player = game.Players.LocalPlayer
@@ -636,38 +561,36 @@ local function showGUI()
             local ok, result = activateKey(key)
             
             if ok then
-                print("✅ Активация успешна!")
-                print("🔍 result.session_token: " .. tostring(result.session_token))
-                
                 status.Text = "✅ Ключ активирован!"
                 status.TextColor3 = Color3.fromRGB(100, 255, 100)
+                print("📥 Результат активации:")
+                print("📥 session_token: " .. tostring(result.session_token))
+                print("📥 expires_at: " .. tostring(result.expires_at))
                 
-                if not result.session_token then
-                    print("❌ session_token не получен от сервера!")
-                    status.Text = "❌ Ошибка: не получен session_token"
+                if result.session_token then
+                    local exp = parseDate(result.expires_at)
+                    saveData({
+                        key = key,
+                        userId = result.userId,
+                        expires_at = result.expires_at,
+                        session_token = result.session_token,
+                        activationDate = os.time(),
+                        expirationDate = exp or (os.time() + 86400 * 7)
+                    })
+                    
+                    task.wait(1)
+                    gui:Destroy()
+                    loadScriptFromServer(result.session_token)
+                else
+                    status.Text = "❌ Не получен session_token от сервера!"
                     status.TextColor3 = Color3.fromRGB(255, 80, 80)
                     btn.Active = true
                     btn.BackgroundColor3 = Color3.fromRGB(50, 50, 200)
                     btn.Text = "АКТИВИРОВАТЬ"
-                    return
                 end
-                
-                local exp = parseDate(result.expires_at)
-                saveData({
-                    key = key,
-                    userId = result.userId,
-                    expires_at = result.expires_at,
-                    session_token = result.session_token,
-                    activationDate = os.time(),
-                    expirationDate = exp or (os.time() + 86400 * 7)
-                })
-                
-                task.wait(1)
-                gui:Destroy()
-                loadScriptFromServer(result.session_token)
             else
                 attempts = attempts + 1
-                status.Text = "❌ " .. tostring(result)
+                status.Text = "❌ " .. result
                 status.TextColor3 = Color3.fromRGB(255, 80, 80)
                 btn.Active = true
                 btn.BackgroundColor3 = Color3.fromRGB(50, 50, 200)
@@ -703,7 +626,8 @@ print("🔴 ДИАГНОСТИКА ФАЙЛОВ:")
 print("🔴 isFileUniversal: " .. tostring(isFileUniversal(CONFIG.SAVE_FILE)))
 if isFileUniversal(CONFIG.SAVE_FILE) then
     local content = readFileUniversal(CONFIG.SAVE_FILE)
-    print("🔴 Содержимое файла: " .. tostring(content))
+    print("🔴 Содержимое файла:")
+    print("🔴 " .. tostring(content))
     if content then
         local success, data = pcall(function()
             return game:GetService("HttpService"):JSONDecode(content)
@@ -734,23 +658,20 @@ if saved and saved.key and saved.userId == player.UserId then
     
     if ok then
         print("✅ Ключ валиден, загрузка скрипта...")
-        print("🔍 result.session_token: " .. tostring(result.session_token))
-        
-        if not result.session_token then
-            print("❌ session_token отсутствует!")
+        if result and result.session_token then
+            saveData({
+                key = saved.key,
+                userId = saved.userId,
+                expires_at = result.expires_at or saved.expires_at,
+                session_token = result.session_token,
+                activationDate = saved.activationDate,
+                expirationDate = saved.expirationDate
+            })
+            loadScriptFromServer(result.session_token)
+        else
+            print("❌ Нет session_token в ответе сервера!")
             showGUI()
-            return
         end
-        
-        saveData({
-            key = saved.key,
-            userId = saved.userId,
-            expires_at = result.expires_at or saved.expires_at,
-            session_token = result.session_token,
-            activationDate = saved.activationDate,
-            expirationDate = saved.expirationDate
-        })
-        loadScriptFromServer(result.session_token)
     else
         print("❌ Ключ невалиден, требуется активация")
         showGUI()
