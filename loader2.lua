@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.19 (ОПТИМИЗИРОВАННЫЙ)
--- FIX: Увеличенная задержка перед запуском
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.20 (С ТАЙМАУТОМ)
+-- FIX: Таймаут при загрузке скрипта с сервера
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.19")
+print("🔧 Загрузка AuraCheats v5.20")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -175,7 +175,7 @@ local function sendRequest(endpoint, data, timeout)
 end
 
 -- ============================================
--- 8. GET ЗАПРОС С ЗЕРКАЛОМ
+-- 8. GET ЗАПРОС С РЕАЛЬНЫМ ТАЙМАУТОМ
 -- ============================================
 local function httpGet(url, timeout)
     timeout = timeout or 10
@@ -184,33 +184,68 @@ local function httpGet(url, timeout)
         url = url:gsub("raw.githubusercontent.com", "raw.githack.com")
     end
     
-    local requestFuncs = {
-        function()
-            if syn and syn.request then
-                return syn.request({ Url = url, Method = "GET", Timeout = timeout })
-            end
-        end,
-        function()
-            if http and http.request then
-                return http.request({ Url = url, Method = "GET", Timeout = timeout })
-            end
-        end,
-        function()
-            return game:HttpGet(url)
-        end
-    }
-    
-    for _, func in ipairs(requestFuncs) do
-        local success, response = pcall(func)
-        if success and response then
-            if type(response) == "table" and response.Body then
+    -- syn.request
+    if syn and syn.request then
+        local success, response = pcall(function()
+            return syn.request({
+                Url = url,
+                Method = "GET",
+                Timeout = timeout
+            })
+        end)
+        if success and response and response.StatusCode == 200 then
+            if type(response.Body) == "string" then
                 return response.Body
             end
-            return response
         end
     end
     
-    return nil
+    -- http.request
+    if http and http.request then
+        local success, response = pcall(function()
+            return http.request({
+                Url = url,
+                Method = "GET",
+                Timeout = timeout
+            })
+        end)
+        if success and response and response.StatusCode == 200 then
+            if type(response.Body) == "string" then
+                return response.Body
+            end
+        end
+    end
+    
+    -- HttpService с таймаутом через корутину
+    local result = nil
+    local finished = false
+    
+    local co = coroutine.create(function()
+        local success, response = pcall(function()
+            return game:GetService("HttpService"):RequestAsync({
+                Url = url,
+                Method = "GET"
+            })
+        end)
+        if success and response and response.StatusCode == 200 then
+            result = response.Body
+        end
+        finished = true
+    end)
+    
+    coroutine.resume(co)
+    
+    local startTime = tick()
+    while not finished and tick() - startTime < timeout do
+        task.wait(0.1)
+    end
+    
+    if not finished then
+        print("⚠️ Таймаут GET запроса (" .. timeout .. "с): " .. url)
+        return nil
+    end
+    
+    return result
 end
 
 -- ============================================
@@ -365,7 +400,7 @@ local function activateKey(key)
 end
 
 -- ============================================
--- 12. ЗАГРУЗКА СКРИПТА С СЕРВЕРА
+-- 12. ЗАГРУЗКА СКРИПТА С СЕРВЕРА (С УВЕЛИЧЕННЫМ ТАЙМАУТОМ)
 -- ============================================
 local function loadScriptFromServer(session_token)
     print("📥 Загрузка скрипта с сервера...")
@@ -380,11 +415,15 @@ local function loadScriptFromServer(session_token)
         userId
     )
     
-    local raw_response = httpGet(url, 15)
+    print("⏳ Ожидание ответа от сервера (до 30 секунд)...")
+    
+    local raw_response = httpGet(url, 30)
     if not raw_response then
-        print("❌ Ошибка загрузки скрипта")
+        print("❌ Ошибка загрузки скрипта (таймаут или ошибка)")
         return false
     end
+    
+    print("✅ Ответ получен, размер: " .. #raw_response .. " байт")
     
     local response_data = game:GetService("HttpService"):JSONDecode(raw_response)
     if not response_data or response_data.status ~= "success" then
@@ -461,7 +500,6 @@ local function loadScriptFromServer(session_token)
     
     print("✅ Скрипт загружен!")
     
-    -- ⏳ УВЕЛИЧЕННАЯ ЗАДЕРЖКА ПЕРЕД ЗАПУСКОМ
     print("⏳ Запуск через 2.5 секунды...")
     task.wait(2.5)
     
