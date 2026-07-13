@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.23
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.24
 -- FIX: Обработка 401, пересоздание сессии
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.23")
+print("🔧 Загрузка AuraCheats v5.24")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -355,44 +355,37 @@ local function checkKeyOnServer(key, userId)
     
     local response, err = sendRequest("/check", data, 15)
     
-    -- Проверяем, что response - это таблица
     if not response then
         print("❌ Ошибка проверки ключа: " .. tostring(err))
         return false, "❌ Ошибка подключения к серверу"
     end
     
-    -- Получаем статус (поддерживаем разные форматы ответа)
     local status = response.status or response.valid
     local message = response.message or response.msg or "none"
     
     print("📥 Ответ статус: " .. tostring(status))
     print("📥 Ответ сообщение: " .. tostring(message))
     
-    -- Если ключ активен (status = "active" ИЛИ valid = true)
     if status == "active" or status == true then
         print("✅ Ключ активен на сервере!")
         return true, response
     end
     
-    -- Если ключ истек
     if status == "expired" then
         print("❌ Ключ истек на сервере!")
         return false, "❌ Срок действия ключа истек. Введите новый ключ."
     end
     
-    -- Если ключ не активирован
     if status == "inactive" then
         print("❌ Ключ не активирован на сервере!")
         return false, "❌ Ключ не активирован. Введите новый ключ."
     end
     
-    -- Если status = "error"
     if status == "error" then
         print("❌ Ошибка: " .. message)
         return false, "❌ " .. message
     end
     
-    -- Неизвестный статус
     print("❌ Неизвестный статус: " .. tostring(status))
     return false, "❌ Неизвестная ошибка. Код: " .. tostring(status)
 end
@@ -430,7 +423,6 @@ local function activateKey(key)
     print("📥 Ответ статус: " .. tostring(status))
     print("📥 Ответ сообщение: " .. tostring(message))
     
-    -- УСПЕХ: ключ активирован
     if status == "success" then
         print("✅ Ключ активирован!")
         if response.session_token then
@@ -439,7 +431,6 @@ local function activateKey(key)
         return true, response
     end
     
-    -- Ключ уже активирован → создаем сессию
     if status == "error" and message == "Key already activated" then
         print("✅ Ключ уже активирован, создаем сессию...")
         
@@ -466,13 +457,11 @@ local function activateKey(key)
         }
     end
     
-    -- Ключ истек
     if status == "error" and message == "Key expired" then
         print("❌ Ключ истек!")
         return false, "❌ Срок действия ключа истек. Введите новый ключ."
     end
     
-    -- Любая другая ошибка
     print("❌ Ключ неактивен: " .. message)
     return false, "❌ " .. message
 end
@@ -509,7 +498,6 @@ local function loadScriptFromServer(session_token)
         
         print("✅ Ответ получен, размер: " .. #raw_response .. " байт")
         
-        -- Парсим JSON
         local response_data = nil
         local parseSuccess, parseResult = pcall(function()
             return game:GetService("HttpService"):JSONDecode(raw_response)
@@ -522,11 +510,9 @@ local function loadScriptFromServer(session_token)
         
         response_data = parseResult
         
-        -- Проверяем статус
         if response_data.status == "error" then
             print("⚠️ Ошибка сервера: " .. (response_data.message or "unknown"))
             
-            -- Если сессия невалидна или истекла
             if response_data.message == "Invalid session" or 
                response_data.message == "Session expired" or
                response_data.message == "Session not found" then
@@ -549,7 +535,6 @@ local function loadScriptFromServer(session_token)
     -- ============================================
     local response_data, status = doLoadScript(currentSession)
     
-    -- ✅ Если сессия невалидна → создаем новую
     if status == "invalid_session" then
         print("🔄 Сессия невалидна на сервере, создаем новую через /session...")
         
@@ -571,7 +556,6 @@ local function loadScriptFromServer(session_token)
         local new_session_token = sessionResponse.session
         print("✅ Новая сессия создана: " .. new_session_token)
         
-        -- Обновляем сохраненные данные
         local saved = loadData()
         if saved then
             saved.session_token = new_session_token
@@ -581,7 +565,6 @@ local function loadScriptFromServer(session_token)
         
         currentSession = new_session_token
         
-        -- Пробуем загрузить скрипт с новой сессией
         response_data, status = doLoadScript(currentSession)
         
         if status ~= "success" then
@@ -590,7 +573,6 @@ local function loadScriptFromServer(session_token)
         end
     end
     
-    -- ❌ Если другая ошибка
     if status ~= "success" then
         print("❌ Ошибка загрузки скрипта: " .. status)
         return false
@@ -932,22 +914,17 @@ local saved = loadData()
 if saved and saved.key and saved.userId == player.UserId then
     print("🔑 Найден сохраненный ключ: " .. saved.key)
     
-    -- ============================================
-    -- ✅ ПРОВЕРКА КЛЮЧА НА СЕРВЕРЕ (ЧЕРЕЗ /check)
-    -- ============================================
     local ok, result = checkKeyOnServer(saved.key, player.UserId)
     
     if ok then
         print("✅ Ключ валиден на сервере, загрузка скрипта...")
         
-        -- Получаем актуальную информацию с сервера
         local newExpiration = result.expires_at
         local expTime = nil
         if newExpiration then
             expTime = parseDate(newExpiration)
         end
         
-        -- Обновляем сохраненные данные
         saveData({
             key = saved.key,
             userId = saved.userId,
@@ -957,7 +934,6 @@ if saved and saved.key and saved.userId == player.UserId then
             expirationDate = expTime or saved.expirationDate
         })
         
-        -- Если нет session_token, пробуем создать через /session
         if not saved.session_token then
             print("⚠️ Нет session_token, создаем через /session...")
             local execName = getexecutorname and getexecutorname() or "Unknown"
@@ -995,7 +971,6 @@ if saved and saved.key and saved.userId == player.UserId then
         print("❌ Ключ невалиден на сервере, требуется активация")
         print("   Причина: " .. tostring(result))
         
-        -- Удаляем старый сохраненный ключ
         if isFileUniversal(CONFIG.SAVE_FILE) then
             pcall(function()
                 if syn and syn.delfile then syn.delfile(CONFIG.SAVE_FILE) end
