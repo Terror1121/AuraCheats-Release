@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.21 (С ПРОВЕРКОЙ НА СЕРВЕРЕ)
--- FIX: Проверка срока ключа на сервере через /check
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.22
+-- FIX: Исправлена обработка ответа от сервера /check и /activate
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.21")
+print("🔧 Загрузка AuraCheats v5.22")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -123,12 +123,15 @@ local function parseDate(dateString)
 end
 
 -- ============================================
--- 7. HTTP ЗАПРОСЫ (С ТАЙМАУТОМ)
+-- 7. HTTP ЗАПРОСЫ (С ТАЙМАУТОМ И ПАРСИНГОМ JSON)
 -- ============================================
 local function sendRequest(endpoint, data, timeout)
     timeout = timeout or 10
     local url = CONFIG.API_URL .. endpoint
     local json = game:GetService("HttpService"):JSONEncode(data)
+    
+    print("📡 Отправка запроса: " .. endpoint)
+    print("   URL: " .. url)
     
     local requestFuncs = {
         function()
@@ -165,9 +168,27 @@ local function sendRequest(endpoint, data, timeout)
     
     for _, func in ipairs(requestFuncs) do
         local success, response = pcall(func)
-        if success and response and response.StatusCode == 200 then
-            local decoded = game:GetService("HttpService"):JSONDecode(response.Body)
-            return decoded, nil
+        if success and response then
+            print("📥 Ответ получен, статус: " .. tostring(response.StatusCode))
+            
+            if response.StatusCode == 200 then
+                local decoded = nil
+                local parseSuccess, parseResult = pcall(function()
+                    return game:GetService("HttpService"):JSONDecode(response.Body)
+                end)
+                if parseSuccess then
+                    decoded = parseResult
+                    print("✅ JSON распарсен успешно")
+                    return decoded, nil
+                else
+                    print("❌ Ошибка парсинга JSON: " .. tostring(parseResult))
+                    print("📄 Сырой ответ: " .. tostring(response.Body):sub(1, 200))
+                    return nil, "JSON parse error"
+                end
+            else
+                print("⚠️ Статус не 200: " .. tostring(response.StatusCode))
+                print("📄 Ответ: " .. tostring(response.Body):sub(1, 200))
+            end
         end
     end
     
@@ -333,35 +354,47 @@ local function checkKeyOnServer(key, userId)
     }
     
     local response, err = sendRequest("/check", data, 15)
+    
+    -- Проверяем, что response - это таблица
     if not response then
-        print("❌ Ошибка проверки ключа: " .. err)
-        return false, nil
+        print("❌ Ошибка проверки ключа: " .. tostring(err))
+        return false, "❌ Ошибка подключения к серверу"
     end
     
-    print("📥 Ответ статус: " .. response.status)
-    print("📥 Ответ сообщение: " .. (response.message or "none"))
+    -- Получаем статус (поддерживаем разные форматы ответа)
+    local status = response.status or response.valid
+    local message = response.message or response.msg or "none"
     
-    -- ✅ Если ключ активен
-    if response.status == "active" then
+    print("📥 Ответ статус: " .. tostring(status))
+    print("📥 Ответ сообщение: " .. tostring(message))
+    
+    -- Если ключ активен (status = "active" ИЛИ valid = true)
+    if status == "active" or status == true then
         print("✅ Ключ активен на сервере!")
         return true, response
     end
     
-    -- ❌ Если ключ истек
-    if response.status == "expired" then
+    -- Если ключ истек
+    if status == "expired" then
         print("❌ Ключ истек на сервере!")
         return false, "❌ Срок действия ключа истек. Введите новый ключ."
     end
     
-    -- ❌ Если ключ не активирован
-    if response.status == "inactive" then
+    -- Если ключ не активирован
+    if status == "inactive" then
         print("❌ Ключ не активирован на сервере!")
         return false, "❌ Ключ не активирован. Введите новый ключ."
     end
     
-    -- ❌ Ошибка
-    print("❌ Ключ неактивен: " .. (response.message or "unknown"))
-    return false, response.message or "❌ Неизвестная ошибка"
+    -- Если status = "error"
+    if status == "error" then
+        print("❌ Ошибка: " .. message)
+        return false, "❌ " .. message
+    end
+    
+    -- Неизвестный статус
+    print("❌ Неизвестный статус: " .. tostring(status))
+    return false, "❌ Неизвестная ошибка. Код: " .. tostring(status)
 end
 
 -- ============================================
@@ -385,20 +418,29 @@ local function activateKey(key)
     }
     
     local response, err = sendRequest("/activate", data, 15)
+    
     if not response then
-        print("❌ Ошибка активации: " .. err)
-        return false, nil
+        print("❌ Ошибка активации: " .. tostring(err))
+        return false, "❌ Ошибка подключения к серверу"
     end
     
-    print("📥 Ответ статус: " .. response.status)
-    print("📥 Ответ сообщение: " .. (response.message or "none"))
+    local status = response.status
+    local message = response.message or "none"
     
-    if response.session_token then
-        print("✅ Сессия получена!")
+    print("📥 Ответ статус: " .. tostring(status))
+    print("📥 Ответ сообщение: " .. tostring(message))
+    
+    -- УСПЕХ: ключ активирован
+    if status == "success" then
+        print("✅ Ключ активирован!")
+        if response.session_token then
+            print("✅ Сессия получена: " .. response.session_token)
+        end
         return true, response
     end
     
-    if response.status == "error" and response.message == "Key already activated" then
+    -- Ключ уже активирован → создаем сессию
+    if status == "error" and message == "Key already activated" then
         print("✅ Ключ уже активирован, создаем сессию...")
         
         local sessionData = {
@@ -411,26 +453,28 @@ local function activateKey(key)
         
         local sessionResponse, sessionErr = sendRequest("/session", sessionData, 15)
         if not sessionResponse or sessionResponse.status ~= "success" then
-            print("❌ Ошибка создания сессии: " .. (sessionErr or "unknown"))
-            return false, nil
+            print("❌ Ошибка создания сессии: " .. tostring(sessionErr))
+            return false, "❌ Ошибка создания сессии"
         end
         
         print("✅ Сессия создана: " .. tostring(sessionResponse.session))
         
         return true, {
             session_token = sessionResponse.session,
-            expires_at = nil,
+            expires_at = response.expires_at,
             userId = player.UserId
         }
     end
     
-    if response.status == "error" and response.message == "Key expired" then
+    -- Ключ истек
+    if status == "error" and message == "Key expired" then
         print("❌ Ключ истек!")
         return false, "❌ Срок действия ключа истек. Введите новый ключ."
     end
     
-    print("❌ Ключ неактивен: " .. (response.message or "unknown"))
-    return false, response.message or "❌ Неизвестная ошибка"
+    -- Любая другая ошибка
+    print("❌ Ключ неактивен: " .. message)
+    return false, "❌ " .. message
 end
 
 -- ============================================
@@ -450,6 +494,7 @@ local function loadScriptFromServer(session_token)
     )
     
     print("⏳ Ожидание ответа от сервера (до 30 секунд)...")
+    print("   URL: " .. url)
     
     local raw_response = httpGet(url, 30)
     if not raw_response then
@@ -459,9 +504,20 @@ local function loadScriptFromServer(session_token)
     
     print("✅ Ответ получен, размер: " .. #raw_response .. " байт")
     
-    local response_data = game:GetService("HttpService"):JSONDecode(raw_response)
-    if not response_data or response_data.status ~= "success" then
-        print("❌ Ошибка ответа сервера")
+    local response_data = nil
+    local parseSuccess, parseResult = pcall(function()
+        return game:GetService("HttpService"):JSONDecode(raw_response)
+    end)
+    
+    if not parseSuccess or not parseResult then
+        print("❌ Ошибка парсинга JSON: " .. tostring(parseResult))
+        return false
+    end
+    
+    response_data = parseResult
+    
+    if response_data.status ~= "success" then
+        print("❌ Ошибка ответа сервера: " .. (response_data.message or "unknown"))
         return false
     end
     
@@ -470,6 +526,8 @@ local function loadScriptFromServer(session_token)
         print("❌ Нет поля 'script'")
         return false
     end
+    
+    print("📦 Декодируем Base64...")
     
     local encrypted_bytes = nil
     
@@ -492,6 +550,8 @@ local function loadScriptFromServer(session_token)
         return false
     end
     
+    print("📦 Расшифровываем XOR (" .. #encrypted_bytes .. " байт)...")
+    
     local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
     local decrypted = ""
     for i = 1, #encrypted_bytes do
@@ -499,6 +559,8 @@ local function loadScriptFromServer(session_token)
         local keyByte = string.byte(key, (i - 1) % #key + 1)
         decrypted = decrypted .. string.char(bit32.bxor(byte, keyByte))
     end
+    
+    print("📦 Расшифровано байт: " .. #decrypted)
     
     local saved = loadData()
     local keyData = nil
@@ -574,6 +636,8 @@ local function showGUI(errorMessage)
         newGui.Name = "AuraKeySystem"
         newGui.Parent = player.PlayerGui
         newGui.ResetOnSpawn = false
+        newGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        newGui.DisplayOrder = 999
         return newGui
     end)
     
@@ -776,10 +840,13 @@ if isFileUniversal(CONFIG.SAVE_FILE) then
             print("🔴   userId: " .. tostring(data.userId))
             print("🔴   session_token: " .. tostring(data.session_token))
             print("🔴   expirationDate: " .. tostring(data.expirationDate))
+        else
+            print("🔴 Ошибка парсинга JSON")
         end
     end
+else
+    print("🔴 Файл НЕ СУЩЕСТВУЕТ")
 end
-
 print("🔴 _G.AuraCheatsKeyData: " .. tostring(_G.AuraCheatsKeyData))
 
 local saved = loadData()
@@ -834,6 +901,9 @@ if saved and saved.key and saved.userId == player.UserId then
                     activationDate = saved.activationDate,
                     expirationDate = expTime or saved.expirationDate
                 })
+                print("✅ session_token создан: " .. saved.session_token)
+            else
+                print("❌ Не удалось создать session_token: " .. tostring(sessionErr))
             end
         end
         
@@ -845,6 +915,8 @@ if saved and saved.key and saved.userId == player.UserId then
         end
     else
         print("❌ Ключ невалиден на сервере, требуется активация")
+        print("   Причина: " .. tostring(result))
+        
         -- Удаляем старый сохраненный ключ
         if isFileUniversal(CONFIG.SAVE_FILE) then
             pcall(function()
