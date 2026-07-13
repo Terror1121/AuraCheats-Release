@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.22
--- FIX: Исправлена обработка ответа от сервера /check и /activate
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.23
+-- FIX: Обработка 401, пересоздание сессии
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.22")
+print("🔧 Загрузка AuraCheats v5.23")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -478,49 +478,127 @@ local function activateKey(key)
 end
 
 -- ============================================
--- 12. ЗАГРУЗКА СКРИПТА С СЕРВЕРА
+-- 12. ЗАГРУЗКА СКРИПТА С СЕРВЕРА (С ОБРАБОТКОЙ 401)
 -- ============================================
 local function loadScriptFromServer(session_token)
     print("📥 Загрузка скрипта с сервера...")
     
     local player = game.Players.LocalPlayer
     local userId = player.UserId
+    local currentSession = session_token
     
-    local url = string.format(
-        "%s/script?session=%s&user_id=%s",
-        CONFIG.API_URL,
-        session_token,
-        userId
-    )
+    -- ============================================
+    -- ВНУТРЕННЯЯ ФУНКЦИЯ ЗАГРУЗКИ
+    -- ============================================
+    local function doLoadScript(token)
+        local url = string.format(
+            "%s/script?session=%s&user_id=%s",
+            CONFIG.API_URL,
+            token,
+            userId
+        )
+        
+        print("⏳ Ожидание ответа от сервера (до 30 секунд)...")
+        print("   URL: " .. url)
+        
+        local raw_response = httpGet(url, 30)
+        if not raw_response then
+            print("❌ Ошибка загрузки скрипта (таймаут или ошибка)")
+            return nil, "timeout"
+        end
+        
+        print("✅ Ответ получен, размер: " .. #raw_response .. " байт")
+        
+        -- Парсим JSON
+        local response_data = nil
+        local parseSuccess, parseResult = pcall(function()
+            return game:GetService("HttpService"):JSONDecode(raw_response)
+        end)
+        
+        if not parseSuccess or not parseResult then
+            print("❌ Ошибка парсинга JSON: " .. tostring(parseResult))
+            return nil, "parse_error"
+        end
+        
+        response_data = parseResult
+        
+        -- Проверяем статус
+        if response_data.status == "error" then
+            print("⚠️ Ошибка сервера: " .. (response_data.message or "unknown"))
+            
+            -- Если сессия невалидна или истекла
+            if response_data.message == "Invalid session" or 
+               response_data.message == "Session expired" or
+               response_data.message == "Session not found" then
+                return nil, "invalid_session"
+            end
+            
+            return nil, "server_error"
+        end
+        
+        if response_data.status ~= "success" then
+            print("❌ Неизвестный статус: " .. tostring(response_data.status))
+            return nil, "unknown_status"
+        end
+        
+        return response_data, "success"
+    end
     
-    print("⏳ Ожидание ответа от сервера (до 30 секунд)...")
-    print("   URL: " .. url)
+    -- ============================================
+    -- ПЕРВАЯ ПОПЫТКА
+    -- ============================================
+    local response_data, status = doLoadScript(currentSession)
     
-    local raw_response = httpGet(url, 30)
-    if not raw_response then
-        print("❌ Ошибка загрузки скрипта (таймаут или ошибка)")
+    -- ✅ Если сессия невалидна → создаем новую
+    if status == "invalid_session" then
+        print("🔄 Сессия невалидна на сервере, создаем новую через /session...")
+        
+        local execName = getexecutorname and getexecutorname() or "Unknown"
+        local sessionData = {
+            userId = userId,
+            executor = execName,
+            version = CONFIG.VERSION,
+            gameId = game.GameId or 0,
+            placeId = game.PlaceId or 0
+        }
+        
+        local sessionResponse, sessionErr = sendRequest("/session", sessionData, 15)
+        if not sessionResponse or sessionResponse.status ~= "success" then
+            print("❌ Ошибка создания сессии: " .. tostring(sessionErr))
+            return false
+        end
+        
+        local new_session_token = sessionResponse.session
+        print("✅ Новая сессия создана: " .. new_session_token)
+        
+        -- Обновляем сохраненные данные
+        local saved = loadData()
+        if saved then
+            saved.session_token = new_session_token
+            saveData(saved)
+            print("✅ session_token обновлен в файле")
+        end
+        
+        currentSession = new_session_token
+        
+        -- Пробуем загрузить скрипт с новой сессией
+        response_data, status = doLoadScript(currentSession)
+        
+        if status ~= "success" then
+            print("❌ Ошибка загрузки скрипта с новой сессией: " .. status)
+            return false
+        end
+    end
+    
+    -- ❌ Если другая ошибка
+    if status ~= "success" then
+        print("❌ Ошибка загрузки скрипта: " .. status)
         return false
     end
     
-    print("✅ Ответ получен, размер: " .. #raw_response .. " байт")
-    
-    local response_data = nil
-    local parseSuccess, parseResult = pcall(function()
-        return game:GetService("HttpService"):JSONDecode(raw_response)
-    end)
-    
-    if not parseSuccess or not parseResult then
-        print("❌ Ошибка парсинга JSON: " .. tostring(parseResult))
-        return false
-    end
-    
-    response_data = parseResult
-    
-    if response_data.status ~= "success" then
-        print("❌ Ошибка ответа сервера: " .. (response_data.message or "unknown"))
-        return false
-    end
-    
+    -- ============================================
+    -- ДЕКОДИРУЕМ И РАСШИФРОВЫВАЕМ
+    -- ============================================
     local encrypted_b64 = response_data.script
     if not encrypted_b64 then
         print("❌ Нет поля 'script'")
@@ -572,7 +650,7 @@ local function loadScriptFromServer(session_token)
             userId = saved.userId,
             activationDate = saved.activationDate,
             expirationDate = saved.expirationDate,
-            session_token = session_token
+            session_token = currentSession
         }
         print("📅 Дата активации: " .. os.date("%d.%m.%Y %H:%M", saved.activationDate))
         print("📅 Дата истечения: " .. os.date("%d.%m.%Y %H:%M", saved.expirationDate))
@@ -584,7 +662,7 @@ local function loadScriptFromServer(session_token)
             userId = userId,
             activationDate = currentTime,
             expirationDate = currentTime + (86400 * 7),
-            session_token = session_token
+            session_token = currentSession
         }
     end
     
