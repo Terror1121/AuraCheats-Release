@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.20 (С ТАЙМАУТОМ)
--- FIX: Таймаут при загрузке скрипта с сервера
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.21 (С ПРОВЕРКОЙ НА СЕРВЕРЕ)
+-- FIX: Проверка срока ключа на сервере через /check
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.20")
+print("🔧 Загрузка AuraCheats v5.21")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -184,7 +184,6 @@ local function httpGet(url, timeout)
         url = url:gsub("raw.githubusercontent.com", "raw.githack.com")
     end
     
-    -- syn.request
     if syn and syn.request then
         local success, response = pcall(function()
             return syn.request({
@@ -200,7 +199,6 @@ local function httpGet(url, timeout)
         end
     end
     
-    -- http.request
     if http and http.request then
         local success, response = pcall(function()
             return http.request({
@@ -216,7 +214,6 @@ local function httpGet(url, timeout)
         end
     end
     
-    -- HttpService с таймаутом через корутину
     local result = nil
     local finished = false
     
@@ -249,7 +246,7 @@ local function httpGet(url, timeout)
 end
 
 -- ============================================
--- 9. ПРОВЕРКА ВЕРСИИ (С ОДНОКРАТНЫМ ПРЕДУПРЕЖДЕНИЕМ)
+-- 9. ПРОВЕРКА ВЕРСИИ
 -- ============================================
 local versionWarningShown = false
 
@@ -312,7 +309,6 @@ local function checkVersion()
                 print("⚠️  Текущая версия: " .. CONFIG.VERSION)
                 print("⚠️  Последняя версия: " .. latestVersion)
                 print("⚠️  Обновите чит для стабильной работы!")
-                print("⚠️  Скачайте новую версию у разработчика.")
                 print("⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️")
                 print("")
             end
@@ -324,10 +320,55 @@ local function checkVersion()
 end
 
 -- ============================================
--- 10. ПРОВЕРКА КЛЮЧА НА СЕРВЕРЕ
+-- 10. ПРОВЕРКА КЛЮЧА НА СЕРВЕРЕ (ЧЕРЕЗ /check)
 -- ============================================
-local function checkKeyOnServer(key)
-    print("📡 Проверка ключа на сервере...")
+local function checkKeyOnServer(key, userId)
+    print("📡 Проверка ключа на сервере (через /check)...")
+    print("   KEY: " .. key)
+    print("   User ID: " .. userId)
+    
+    local data = {
+        key = key,
+        userId = userId
+    }
+    
+    local response, err = sendRequest("/check", data, 15)
+    if not response then
+        print("❌ Ошибка проверки ключа: " .. err)
+        return false, nil
+    end
+    
+    print("📥 Ответ статус: " .. response.status)
+    print("📥 Ответ сообщение: " .. (response.message or "none"))
+    
+    -- ✅ Если ключ активен
+    if response.status == "active" then
+        print("✅ Ключ активен на сервере!")
+        return true, response
+    end
+    
+    -- ❌ Если ключ истек
+    if response.status == "expired" then
+        print("❌ Ключ истек на сервере!")
+        return false, "❌ Срок действия ключа истек. Введите новый ключ."
+    end
+    
+    -- ❌ Если ключ не активирован
+    if response.status == "inactive" then
+        print("❌ Ключ не активирован на сервере!")
+        return false, "❌ Ключ не активирован. Введите новый ключ."
+    end
+    
+    -- ❌ Ошибка
+    print("❌ Ключ неактивен: " .. (response.message or "unknown"))
+    return false, response.message or "❌ Неизвестная ошибка"
+end
+
+-- ============================================
+-- 11. АКТИВАЦИЯ КЛЮЧА (ЧЕРЕЗ /activate)
+-- ============================================
+local function activateKey(key)
+    print("📡 Активация ключа на сервере (через /activate)...")
     print("   KEY: " .. key)
     
     local player = game.Players.LocalPlayer
@@ -345,7 +386,7 @@ local function checkKeyOnServer(key)
     
     local response, err = sendRequest("/activate", data, 15)
     if not response then
-        print("❌ Ошибка проверки ключа: " .. err)
+        print("❌ Ошибка активации: " .. err)
         return false, nil
     end
     
@@ -393,14 +434,7 @@ local function checkKeyOnServer(key)
 end
 
 -- ============================================
--- 11. АКТИВАЦИЯ КЛЮЧА
--- ============================================
-local function activateKey(key)
-    return checkKeyOnServer(key)
-end
-
--- ============================================
--- 12. ЗАГРУЗКА СКРИПТА С СЕРВЕРА (С УВЕЛИЧЕННЫМ ТАЙМАУТОМ)
+-- 12. ЗАГРУЗКА СКРИПТА С СЕРВЕРА
 -- ============================================
 local function loadScriptFromServer(session_token)
     print("📥 Загрузка скрипта с сервера...")
@@ -515,7 +549,7 @@ local function loadScriptFromServer(session_token)
 end
 
 -- ============================================
--- 13. GUI ВВОДА КЛЮЧА (С ЗАЩИТОЙ ОТ ОШИБОК)
+-- 13. GUI ВВОДА КЛЮЧА
 -- ============================================
 local function showGUI(errorMessage)
     local player = game.Players.LocalPlayer
@@ -710,7 +744,7 @@ local function showGUI(errorMessage)
 end
 
 -- ============================================
--- 14. ЗАПУСК
+-- 14. ЗАПУСК (С ПРОВЕРКОЙ НА СЕРВЕРЕ)
 -- ============================================
 print("📅 " .. os.date("%Y-%m-%d %H:%M:%S"))
 
@@ -741,6 +775,7 @@ if isFileUniversal(CONFIG.SAVE_FILE) then
             print("🔴   key: " .. tostring(data.key))
             print("🔴   userId: " .. tostring(data.userId))
             print("🔴   session_token: " .. tostring(data.session_token))
+            print("🔴   expirationDate: " .. tostring(data.expirationDate))
         end
     end
 end
@@ -752,26 +787,72 @@ local saved = loadData()
 if saved and saved.key and saved.userId == player.UserId then
     print("🔑 Найден сохраненный ключ: " .. saved.key)
     
-    local ok, result = checkKeyOnServer(saved.key)
+    -- ============================================
+    -- ✅ ПРОВЕРКА КЛЮЧА НА СЕРВЕРЕ (ЧЕРЕЗ /check)
+    -- ============================================
+    local ok, result = checkKeyOnServer(saved.key, player.UserId)
     
     if ok then
-        print("✅ Ключ валиден, загрузка скрипта...")
-        if result and result.session_token then
-            saveData({
-                key = saved.key,
-                userId = saved.userId,
-                expires_at = result.expires_at or saved.expires_at,
-                session_token = result.session_token,
-                activationDate = saved.activationDate,
-                expirationDate = saved.expirationDate
-            })
-            loadScriptFromServer(result.session_token)
+        print("✅ Ключ валиден на сервере, загрузка скрипта...")
+        
+        -- Получаем актуальную информацию с сервера
+        local newExpiration = result.expires_at
+        local expTime = nil
+        if newExpiration then
+            expTime = parseDate(newExpiration)
+        end
+        
+        -- Обновляем сохраненные данные
+        saveData({
+            key = saved.key,
+            userId = saved.userId,
+            expires_at = newExpiration,
+            session_token = saved.session_token,
+            activationDate = saved.activationDate,
+            expirationDate = expTime or saved.expirationDate
+        })
+        
+        -- Если нет session_token, пробуем создать через /session
+        if not saved.session_token then
+            print("⚠️ Нет session_token, создаем через /session...")
+            local execName = getexecutorname and getexecutorname() or "Unknown"
+            local sessionData = {
+                userId = player.UserId,
+                executor = execName,
+                version = CONFIG.VERSION,
+                gameId = game.GameId or 0,
+                placeId = game.PlaceId or 0
+            }
+            local sessionResponse, sessionErr = sendRequest("/session", sessionData, 15)
+            if sessionResponse and sessionResponse.status == "success" then
+                saved.session_token = sessionResponse.session
+                saveData({
+                    key = saved.key,
+                    userId = saved.userId,
+                    expires_at = newExpiration,
+                    session_token = sessionResponse.session,
+                    activationDate = saved.activationDate,
+                    expirationDate = expTime or saved.expirationDate
+                })
+            end
+        end
+        
+        if saved.session_token then
+            loadScriptFromServer(saved.session_token)
         else
-            print("❌ Нет session_token в ответе сервера!")
+            print("❌ Нет session_token!")
             showGUI("❌ Ошибка получения сессии")
         end
     else
-        print("❌ Ключ невалиден, требуется активация")
+        print("❌ Ключ невалиден на сервере, требуется активация")
+        -- Удаляем старый сохраненный ключ
+        if isFileUniversal(CONFIG.SAVE_FILE) then
+            pcall(function()
+                if syn and syn.delfile then syn.delfile(CONFIG.SAVE_FILE) end
+                if delfile then delfile(CONFIG.SAVE_FILE) end
+            end)
+        end
+        _G.AuraCheatsKeyData = nil
         showGUI(tostring(result) or "❌ Ключ неактивен. Введите новый ключ.")
     end
 else
