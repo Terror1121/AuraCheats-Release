@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.35
--- FIX: ТОЛЬКО НАДЕЖНЫЕ ЗЕРКАЛА (БЕЗ JSDELIVR)
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.36
+-- FIX: УПРОЩЕННАЯ ЗАГРУЗКА (БЕЗ КОРУТИН)
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.35")
+print("🔧 Загрузка AuraCheats v5.36")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -21,39 +21,48 @@ local CONFIG = {
 -- 2. УНИВЕРСАЛЬНАЯ ЗАПИСЬ ФАЙЛА
 -- ============================================
 local function writeFileUniversal(path, data)
-    local writeFuncs = {
-        function() if syn and syn.writefile then return syn.writefile(path, data) end end,
-        function() if writefile then return writefile(path, data) end end,
-        function() if secure_call then return secure_call(function() return writefile(path, data) end) end end
-    }
-    for _, func in ipairs(writeFuncs) do
-        local success, result = pcall(func)
+    if syn and syn.writefile then
+        local success, result = pcall(function() return syn.writefile(path, data) end)
+        if success and result then return true end
+    end
+    if writefile then
+        local success, result = pcall(function() return writefile(path, data) end)
+        if success and result then return true end
+    end
+    if secure_call then
+        local success, result = pcall(function() return secure_call(function() return writefile(path, data) end) end)
         if success and result then return true end
     end
     return false
 end
 
 local function readFileUniversal(path)
-    local readFuncs = {
-        function() if syn and syn.readfile then return syn.readfile(path) end end,
-        function() if readfile then return readfile(path) end end,
-        function() if secure_call then return secure_call(function() return readfile(path) end) end end
-    }
-    for _, func in ipairs(readFuncs) do
-        local success, result = pcall(func)
+    if syn and syn.readfile then
+        local success, result = pcall(function() return syn.readfile(path) end)
+        if success and result then return result end
+    end
+    if readfile then
+        local success, result = pcall(function() return readfile(path) end)
+        if success and result then return result end
+    end
+    if secure_call then
+        local success, result = pcall(function() return secure_call(function() return readfile(path) end) end)
         if success and result then return result end
     end
     return nil
 end
 
 local function isFileUniversal(path)
-    local checkFuncs = {
-        function() if syn and syn.isfile then return syn.isfile(path) end end,
-        function() if isfile then return isfile(path) end end,
-        function() if secure_call then return secure_call(function() return isfile(path) end) end end
-    }
-    for _, func in ipairs(checkFuncs) do
-        local success, result = pcall(func)
+    if syn and syn.isfile then
+        local success, result = pcall(function() return syn.isfile(path) end)
+        if success and result then return result end
+    end
+    if isfile then
+        local success, result = pcall(function() return isfile(path) end)
+        if success and result then return result end
+    end
+    if secure_call then
+        local success, result = pcall(function() return secure_call(function() return isfile(path) end) end)
         if success and result then return result end
     end
     return false
@@ -124,7 +133,6 @@ local function universalRequestSync(method, url, data, timeout)
         body = result
     end
     
-    -- syn.request
     if syn and syn.request then
         local success, response = pcall(function()
             return syn.request({
@@ -151,7 +159,6 @@ local function universalRequestSync(method, url, data, timeout)
         end
     end
     
-    -- http.request
     if http and http.request then
         local success, response = pcall(function()
             return http.request({
@@ -178,7 +185,6 @@ local function universalRequestSync(method, url, data, timeout)
         end
     end
     
-    -- HttpService:RequestAsync
     local success, response = pcall(function()
         return game:GetService("HttpService"):RequestAsync({
             Url = url,
@@ -204,65 +210,30 @@ local function universalRequestSync(method, url, data, timeout)
 end
 
 -- ============================================
--- 5. СИНХРОННЫЙ GET (НАДЕЖНЫЕ ЗЕРКАЛА)
+-- 5. УПРОЩЕННЫЙ GET (БЕЗ КОРУТИН)
 -- ============================================
 local function httpGetSync(url, timeout)
     timeout = timeout or 10
     
-    local originalUrl = url
-    local path = nil
+    print("   📡 Загрузка: " .. url)
     
-    -- Извлекаем путь из URL
+    -- Заменяем на githack
     if url:find("raw.githubusercontent.com") then
-        path = url:match("raw%.githubusercontent%.com/(.+)")
-    elseif url:find("raw.githack.com") then
-        path = url:match("raw%.githack%.com/(.+)")
-    end
-    
-    if not path then
-        path = url
-    end
-    
-    -- ТОЛЬКО НАДЕЖНЫЕ ЗЕРКАЛА (без jsdelivr)
-    local mirrors = {
-        -- 1. githack (самый быстрый CDN)
-        {
-            url = "https://raw.githack.com/" .. path,
-            name = "githack"
-        },
-        -- 2. staticdn (альтернативный CDN)
-        {
-            url = "https://raw.staticdn.net/" .. path,
-            name = "staticdn"
-        },
-        -- 3. gitcdn (еще одно зеркало)
-        {
-            url = "https://gitcdn.xyz/repo/" .. path,
-            name = "gitcdn"
-        },
-        -- 4. Оригинальный GitHub (всегда актуально)
-        {
-            url = "https://raw.githubusercontent.com/" .. path,
-            name = "github"
-        }
-    }
-    
-    -- Пробуем каждое зеркало
-    for _, mirror in ipairs(mirrors) do
-        print("   🔄 Пробуем: " .. mirror.name)
+        local githackUrl = url:gsub("raw.githubusercontent.com", "raw.githack.com")
+        print("   🔄 Пробуем githack: " .. githackUrl)
         
         -- syn.request
         if syn and syn.request then
             local success, response = pcall(function()
                 return syn.request({
-                    Url = mirror.url,
+                    Url = githackUrl,
                     Method = "GET",
                     Timeout = timeout
                 })
             end)
             if success and response and response.StatusCode == 200 then
                 if type(response.Body) == "string" then
-                    print("   ✅ Загружено через " .. mirror.name)
+                    print("   ✅ Загружено через githack (syn.request)")
                     return response.Body, 200
                 end
             end
@@ -272,61 +243,77 @@ local function httpGetSync(url, timeout)
         if http and http.request then
             local success, response = pcall(function()
                 return http.request({
-                    Url = mirror.url,
+                    Url = githackUrl,
                     Method = "GET",
                     Timeout = timeout
                 })
             end)
             if success and response and response.StatusCode == 200 then
                 if type(response.Body) == "string" then
-                    print("   ✅ Загружено через " .. mirror.name)
+                    print("   ✅ Загружено через githack (http.request)")
                     return response.Body, 200
                 end
             end
         end
-        
-        -- HttpService:RequestAsync
-        local reqResult = nil
-        local finished = false
-        local statusCode = nil
-        
-        local co = coroutine.create(function()
-            local success, response = pcall(function()
-                return game:GetService("HttpService"):RequestAsync({
-                    Url = mirror.url,
-                    Method = "GET"
-                })
-            end)
-            if success and response then
-                statusCode = response.StatusCode
-                if response.StatusCode == 200 then
-                    reqResult = response.Body
-                end
-            end
-            finished = true
+    end
+    
+    -- Пробуем оригинальный URL через syn.request
+    if syn and syn.request then
+        local success, response = pcall(function()
+            return syn.request({
+                Url = url,
+                Method = "GET",
+                Timeout = timeout
+            })
         end)
-        
-        coroutine.resume(co)
-        
-        local startTime = tick()
-        while not finished and tick() - startTime < timeout do
-            task.wait(0.1)
-        end
-        
-        if finished and statusCode == 200 then
-            print("   ✅ Загружено через " .. mirror.name)
-            return reqResult, 200
+        if success and response and response.StatusCode == 200 then
+            if type(response.Body) == "string" then
+                print("   ✅ Загружено через syn.request (оригинал)")
+                return response.Body, 200
+            end
         end
     end
     
-    print("   ❌ Все зеркала не удались!")
-    return nil, "all_mirrors_failed"
+    -- Пробуем оригинальный URL через http.request
+    if http and http.request then
+        local success, response = pcall(function()
+            return http.request({
+                Url = url,
+                Method = "GET",
+                Timeout = timeout
+            })
+        end)
+        if success and response and response.StatusCode == 200 then
+            if type(response.Body) == "string" then
+                print("   ✅ Загружено через http.request (оригинал)")
+                return response.Body, 200
+            end
+        end
+    end
+    
+    -- Пробуем через HttpService:RequestAsync
+    local success, response = pcall(function()
+        return game:GetService("HttpService"):RequestAsync({
+            Url = url,
+            Method = "GET"
+        })
+    end)
+    if success and response and response.StatusCode == 200 then
+        if type(response.Body) == "string" then
+            print("   ✅ Загружено через HttpService (оригинал)")
+            return response.Body, 200
+        end
+    end
+    
+    print("   ❌ Все методы загрузки не удались!")
+    return nil, "all_methods_failed"
 end
 
 -- ============================================
 -- 6. ПРОВЕРКА ВЕРСИИ
 -- ============================================
 local function checkVersion()
+    print("🔍 Проверка версии...")
     local response, status = httpGetSync(CONFIG.VERSION_URL, 10)
     if not response then
         print("⚠️ Не удалось проверить версию. Пропускаем.")
@@ -569,18 +556,17 @@ local function loadScriptFromServer(session_token)
     print("📦 Декодируем Base64...")
     
     local encrypted_bytes = nil
-    local decodeFuncs = {
-        function() if crypt and crypt.base64decode then return crypt.base64decode(encrypted_b64) end end,
-        function() if syn and syn.crypt and syn.crypt.base64 and syn.crypt.base64.decode then return syn.crypt.base64.decode(encrypted_b64) end end,
-        function() if base64 and base64.decode then return base64.decode(encrypted_b64) end end
-    }
-    
-    for _, func in ipairs(decodeFuncs) do
-        local success, result = pcall(func)
-        if success and result then
-            encrypted_bytes = result
-            break
-        end
+    if crypt and crypt.base64decode then
+        local success, result = pcall(function() return crypt.base64decode(encrypted_b64) end)
+        if success then encrypted_bytes = result end
+    end
+    if not encrypted_bytes and syn and syn.crypt and syn.crypt.base64 and syn.crypt.base64.decode then
+        local success, result = pcall(function() return syn.crypt.base64.decode(encrypted_b64) end)
+        if success then encrypted_bytes = result end
+    end
+    if not encrypted_bytes and base64 and base64.decode then
+        local success, result = pcall(function() return base64.decode(encrypted_b64) end)
+        if success then encrypted_bytes = result end
     end
     
     if not encrypted_bytes then
