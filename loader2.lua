@@ -1,10 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.42
--- FIX: АСИНХРОННАЯ ЗАГРУЗКА (НЕТ ЗАВИСАНИЙ!)
--- РАБОТАЕТ НА ВСЕХ ИНЖЕКТОРАХ
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.43
+-- FIX: АСИНХРОННАЯ РАСШИФРОВКА XOR (НЕТ ЗАВИСАНИЙ!)
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.42")
+print("🔧 Загрузка AuraCheats v5.43")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -117,7 +116,7 @@ local function parseDate(dateString)
 end
 
 -- ============================================
--- 4. АСИНХРОННЫЙ ЗАПРОС (НЕ БЛОКИРУЕТ!)
+-- 4. АСИНХРОННЫЙ ЗАПРОС
 -- ============================================
 local function asyncRequest(url, method, data, callback, timeout)
     timeout = timeout or 15
@@ -127,7 +126,6 @@ local function asyncRequest(url, method, data, callback, timeout)
         local result = nil
         local statusCode = nil
         
-        -- 1️⃣ syn.request (Synapse, Xeno, Krnl, Solara, Velocity)
         if syn and syn.request then
             local success, response = pcall(function()
                 return syn.request({
@@ -151,7 +149,6 @@ local function asyncRequest(url, method, data, callback, timeout)
             end
         end
         
-        -- 2️⃣ http.request (SirHurt, ScriptWare, Fluxus)
         if not result and http and http.request then
             local success, response = pcall(function()
                 return http.request({
@@ -175,7 +172,6 @@ local function asyncRequest(url, method, data, callback, timeout)
             end
         end
         
-        -- 3️⃣ HttpService:RequestAsync (JJSploit, Hydrogen, Delta)
         if not result then
             local success, response = pcall(function()
                 return game:GetService("HttpService"):RequestAsync({
@@ -204,34 +200,37 @@ local function asyncRequest(url, method, data, callback, timeout)
 end
 
 -- ============================================
--- 5. ЗАГРУЗКА ОСНОВНОГО СКРИПТА (С GITHUB)
+-- 5. АСИНХРОННАЯ РАСШИФРОВКА XOR
 -- ============================================
-local function loadMainScript(keyData)
-    print("📥 Загрузка основного скрипта...")
-    
-    local url = "https://raw.githubusercontent.com/Terror1121/AuraCheats-Release/main/main_clean.lua"
-    
-    local success, script = pcall(function()
-        return game:HttpGet(url)
+local function decryptXORAsync(encrypted_bytes, userId, callback)
+    task.spawn(function()
+        print("📦 Расшифровываем XOR... (" .. #encrypted_bytes .. " байт)")
+        
+        local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
+        local decrypted = ""
+        local total = #encrypted_bytes
+        local lastProgress = 0
+        
+        for i = 1, total do
+            local byte = string.byte(encrypted_bytes, i)
+            local keyByte = string.byte(key, (i - 1) % #key + 1)
+            decrypted = decrypted .. string.char(bit32.bxor(byte, keyByte))
+            
+            local progress = math.floor(i / total * 100)
+            if progress >= lastProgress + 10 then
+                lastProgress = progress
+                print("   ⏳ Расшифровка: " .. progress .. "%")
+                task.wait()
+            end
+        end
+        
+        print("✅ Расшифровка завершена! (" .. #decrypted .. " байт)")
+        callback(decrypted)
     end)
-    
-    if not success or not script or #script < 100 then
-        print("❌ Ошибка загрузки основного скрипта")
-        return
-    end
-    
-    local func, err = loadstring(script)
-    if not func then
-        print("❌ Ошибка компиляции: " .. tostring(err))
-        return
-    end
-    
-    print("✅ Скрипт загружен, запуск...")
-    pcall(func, keyData)
 end
 
 -- ============================================
--- 6. ЗАГРУЗКА СКРИПТА С СЕРВЕРА (АСИНХРОННО)
+-- 6. ЗАГРУЗКА СКРИПТА С СЕРВЕРА
 -- ============================================
 local function loadScriptFromServerAsync(session_token, userId)
     local url = string.format(
@@ -305,47 +304,41 @@ local function loadScriptFromServerAsync(session_token, userId)
             return
         end
         
-        print("📦 Расшифровываем XOR...")
-        local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
-        local decrypted = ""
-        for i = 1, #encrypted_bytes do
-            local byte = string.byte(encrypted_bytes, i)
-            local keyByte = string.byte(key, (i - 1) % #key + 1)
-            decrypted = decrypted .. string.char(bit32.bxor(byte, keyByte))
-        end
-        
-        local saved = loadData()
-        local keyData = nil
-        
-        if saved then
-            keyData = {
-                isValid = true,
-                key = saved.key,
-                userId = saved.userId,
-                activationDate = saved.activationDate,
-                expirationDate = saved.expirationDate,
-                session_token = session_token
-            }
-        else
-            local currentTime = os.time()
-            keyData = {
-                isValid = true,
-                key = "Unknown",
-                userId = userId,
-                activationDate = currentTime,
-                expirationDate = currentTime + (86400 * 7),
-                session_token = session_token
-            }
-        end
-        
-        local func, err = loadstring(decrypted)
-        if not func then
-            print("❌ Ошибка компиляции: " .. (err or "unknown"))
-            return
-        end
-        
-        print("✅ Скрипт загружен!")
-        pcall(func, keyData)
+        -- ✅ АСИНХРОННАЯ РАСШИФРОВКА
+        decryptXORAsync(encrypted_bytes, userId, function(decrypted)
+            local saved = loadData()
+            local keyData = nil
+            
+            if saved then
+                keyData = {
+                    isValid = true,
+                    key = saved.key,
+                    userId = saved.userId,
+                    activationDate = saved.activationDate,
+                    expirationDate = saved.expirationDate,
+                    session_token = session_token
+                }
+            else
+                local currentTime = os.time()
+                keyData = {
+                    isValid = true,
+                    key = "Unknown",
+                    userId = userId,
+                    activationDate = currentTime,
+                    expirationDate = currentTime + (86400 * 7),
+                    session_token = session_token
+                }
+            end
+            
+            local func, err = loadstring(decrypted)
+            if not func then
+                print("❌ Ошибка компиляции: " .. tostring(err))
+                return
+            end
+            
+            print("✅ Скрипт загружен!")
+            pcall(func, keyData)
+        end)
     end)
 end
 
@@ -378,7 +371,17 @@ local function checkKeyAsync(key, userId)
             if saved and saved.session_token then
                 loadScriptFromServerAsync(saved.session_token, userId)
             else
-                loadMainScript({ isValid = true, key = key, userId = userId })
+                print("⚠️ Нет session_token, загружаем main_clean.lua с GitHub...")
+                local url = "https://raw.githubusercontent.com/Terror1121/AuraCheats-Release/main/main_clean.lua"
+                local success, script = pcall(function()
+                    return game:HttpGet(url)
+                end)
+                if success and script and #script > 100 then
+                    local func, err = loadstring(script)
+                    if func then
+                        pcall(func, { isValid = true, key = key, userId = userId })
+                    end
+                end
             end
         elseif response.status == "expired" then
             print("❌ Ключ истек!")
@@ -555,7 +558,6 @@ local function showGUI(errorMessage)
                         loadScriptFromServerAsync(response.session_token, player.UserId)
                     end
                 elseif response.status == "error" and response.message == "Key already activated" then
-                    -- Ключ уже активирован — создаём сессию
                     local sessionUrl = CONFIG.API_URL .. "/session"
                     local sessionData = {
                         userId = player.UserId,
