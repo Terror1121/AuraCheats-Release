@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.24
--- FIX: Обработка 401, пересоздание сессии
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.25
+-- FIX: httpGet возвращает статус, обработка 401
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.24")
+print("🔧 Загрузка AuraCheats v5.25")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -196,7 +196,7 @@ local function sendRequest(endpoint, data, timeout)
 end
 
 -- ============================================
--- 8. GET ЗАПРОС С РЕАЛЬНЫМ ТАЙМАУТОМ
+-- 8. GET ЗАПРОС С ВОЗВРАТОМ СТАТУСА
 -- ============================================
 local function httpGet(url, timeout)
     timeout = timeout or 10
@@ -205,6 +205,7 @@ local function httpGet(url, timeout)
         url = url:gsub("raw.githubusercontent.com", "raw.githack.com")
     end
     
+    -- ПЫТАЕМСЯ ЧЕРЕЗ syn.request
     if syn and syn.request then
         local success, response = pcall(function()
             return syn.request({
@@ -213,13 +214,18 @@ local function httpGet(url, timeout)
                 Timeout = timeout
             })
         end)
-        if success and response and response.StatusCode == 200 then
-            if type(response.Body) == "string" then
-                return response.Body
+        if success and response then
+            if response.StatusCode == 200 then
+                if type(response.Body) == "string" then
+                    return response.Body, 200
+                end
+            else
+                return nil, response.StatusCode
             end
         end
     end
     
+    -- ПЫТАЕМСЯ ЧЕРЕЗ http.request
     if http and http.request then
         local success, response = pcall(function()
             return http.request({
@@ -228,15 +234,21 @@ local function httpGet(url, timeout)
                 Timeout = timeout
             })
         end)
-        if success and response and response.StatusCode == 200 then
-            if type(response.Body) == "string" then
-                return response.Body
+        if success and response then
+            if response.StatusCode == 200 then
+                if type(response.Body) == "string" then
+                    return response.Body, 200
+                end
+            else
+                return nil, response.StatusCode
             end
         end
     end
     
+    -- ПЫТАЕМСЯ ЧЕРЕЗ game:HttpGet (с таймаутом через корутину)
     local result = nil
     local finished = false
+    local statusCode = nil
     
     local co = coroutine.create(function()
         local success, response = pcall(function()
@@ -245,8 +257,11 @@ local function httpGet(url, timeout)
                 Method = "GET"
             })
         end)
-        if success and response and response.StatusCode == 200 then
-            result = response.Body
+        if success and response then
+            statusCode = response.StatusCode
+            if response.StatusCode == 200 then
+                result = response.Body
+            end
         end
         finished = true
     end)
@@ -260,10 +275,14 @@ local function httpGet(url, timeout)
     
     if not finished then
         print("⚠️ Таймаут GET запроса (" .. timeout .. "с): " .. url)
-        return nil
+        return nil, "timeout"
     end
     
-    return result
+    if statusCode == 200 then
+        return result, 200
+    else
+        return nil, statusCode or "error"
+    end
 end
 
 -- ============================================
@@ -490,7 +509,14 @@ local function loadScriptFromServer(session_token)
         print("⏳ Ожидание ответа от сервера (до 30 секунд)...")
         print("   URL: " .. url)
         
-        local raw_response = httpGet(url, 30)
+        local raw_response, status = httpGet(url, 30)
+        
+        -- ✅ ОБРАБАТЫВАЕМ 401
+        if status == 401 then
+            print("⚠️ Сервер вернул 401: Invalid session")
+            return nil, "invalid_session"
+        end
+        
         if not raw_response then
             print("❌ Ошибка загрузки скрипта (таймаут или ошибка)")
             return nil, "timeout"
@@ -535,6 +561,7 @@ local function loadScriptFromServer(session_token)
     -- ============================================
     local response_data, status = doLoadScript(currentSession)
     
+    -- ✅ Если сессия невалидна → создаем новую
     if status == "invalid_session" then
         print("🔄 Сессия невалидна на сервере, создаем новую через /session...")
         
@@ -565,6 +592,7 @@ local function loadScriptFromServer(session_token)
         
         currentSession = new_session_token
         
+        -- Пробуем загрузить скрипт с новой сессией
         response_data, status = doLoadScript(currentSession)
         
         if status ~= "success" then
