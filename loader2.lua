@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.36
--- FIX: УПРОЩЕННАЯ ЗАГРУЗКА (БЕЗ КОРУТИН)
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.37
+-- FIX: УНИВЕРСАЛЬНЫЙ GET ДЛЯ ВСЕХ ИНЖЕКТОРОВ
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.36")
+print("🔧 Загрузка AuraCheats v5.37")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -13,8 +13,6 @@ local CONFIG = {
     SAVE_FILE = "AuraCheatsKeyData",
     ENCRYPT_KEY = "AuraCheats2024",
     VERSION = "2.2.25",
-    MAIN_URL = "https://raw.githubusercontent.com/Terror1121/AuraCheats-Release/main/main.lua",
-    VERSION_URL = "https://raw.githubusercontent.com/Terror1121/AuraCheats-Release/main/version.txt"
 }
 
 -- ============================================
@@ -118,193 +116,97 @@ local function parseDate(dateString)
 end
 
 -- ============================================
--- 4. СИНХРОННЫЙ POST ЗАПРОС
--- ============================================
-local function universalRequestSync(method, url, data, timeout)
-    timeout = timeout or 10
-    local body = nil
-    local headers = { ["Content-Type"] = "application/json" }
-    
-        if data then
-        local success, result = pcall(function()
-            return game:GetService("HttpService"):JSONEncode(data)
-        end)
-        if not success then 
-            return nil, "json_error"
-        end
-        body = result
-    end
-    
-    if syn and syn.request then
-        local success, response = pcall(function()
-            return syn.request({
-                Url = url,
-                Method = method,
-                Headers = headers,
-                Body = body,
-                Timeout = timeout
-            })
-        end)
-        if success and response then
-            if response.StatusCode == 200 then
-                if type(response.Body) == "string" then
-                    local success2, decoded = pcall(function()
-                        return game:GetService("HttpService"):JSONDecode(response.Body)
-                    end)
-                    if success2 then
-                        return decoded, response.StatusCode
-                    end
-                end
-            else
-                return nil, response.StatusCode
-            end
-        end
-    end
-    
-    if http and http.request then
-        local success, response = pcall(function()
-            return http.request({
-                Url = url,
-                Method = method,
-                Headers = headers,
-                Body = body,
-                Timeout = timeout
-            })
-        end)
-        if success and response then
-            if response.StatusCode == 200 then
-                if type(response.Body) == "string" then
-                    local success2, decoded = pcall(function()
-                        return game:GetService("HttpService"):JSONDecode(response.Body)
-                    end)
-                    if success2 then
-                        return decoded, response.StatusCode
-                    end
-                end
-            else
-                return nil, response.StatusCode
-            end
-        end
-    end
-    
-    local success, response = pcall(function()
-        return game:GetService("HttpService"):RequestAsync({
-            Url = url,
-            Method = method,
-            Headers = headers,
-            Body = body
-        })
-    end)
-    if success and response then
-        if response.StatusCode == 200 then
-            local success2, decoded = pcall(function()
-                return game:GetService("HttpService"):JSONDecode(response.Body)
-            end)
-            if success2 then
-                return decoded, response.StatusCode
-            end
-        else
-            return nil, response.StatusCode
-        end
-    end
-    
-    return nil, nil
-end
-
--- ============================================
--- 5. УПРОЩЕННЫЙ GET (БЕЗ КОРУТИН)
+-- 4. УНИВЕРСАЛЬНЫЙ GET (РАБОТАЕТ НА ВСЕХ)
 -- ============================================
 local function httpGetSync(url, timeout)
-    timeout = timeout or 10
+    timeout = timeout or 15
     
-    print("   📡 Загрузка: " .. url)
-    
-    -- Заменяем на githack
-    if url:find("raw.githubusercontent.com") then
-        local githackUrl = url:gsub("raw.githubusercontent.com", "raw.githack.com")
-        print("   🔄 Пробуем githack: " .. githackUrl)
-        
-        -- syn.request
-        if syn and syn.request then
-            local success, response = pcall(function()
-                return syn.request({
-                    Url = githackUrl,
-                    Method = "GET",
-                    Timeout = timeout
-                })
-            end)
-            if success and response and response.StatusCode == 200 then
-                if type(response.Body) == "string" then
-                    print("   ✅ Загружено через githack (syn.request)")
-                    return response.Body, 200
-                end
-            end
-        end
-        
-        -- http.request
-        if http and http.request then
-            local success, response = pcall(function()
-                return http.request({
-                    Url = githackUrl,
-                    Method = "GET",
-                    Timeout = timeout
-                })
-            end)
-            if success and response and response.StatusCode == 200 then
-                if type(response.Body) == "string" then
-                    print("   ✅ Загружено через githack (http.request)")
-                    return response.Body, 200
-                end
-            end
-        end
-    end
-    
-    -- Пробуем оригинальный URL через syn.request
+    -- 1. ПРОБУЕМ syn.request (Synapse, Xeno, Krnl, Solara, Velocity)
     if syn and syn.request then
         local success, response = pcall(function()
             return syn.request({
                 Url = url,
                 Method = "GET",
-                Timeout = timeout
+                Timeout = timeout,
+                Headers = {
+                    ["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                    ["Accept"] = "application/json"
+                }
             })
         end)
-        if success and response and response.StatusCode == 200 then
-            if type(response.Body) == "string" then
-                print("   ✅ Загружено через syn.request (оригинал)")
-                return response.Body, 200
+        if success and response then
+            if response.StatusCode == 200 then
+                if type(response.Body) == "string" then
+                    return response.Body, 200
+                end
+            else
+                print("   ❌ syn.request: StatusCode=" .. tostring(response.StatusCode))
             end
         end
     end
     
-    -- Пробуем оригинальный URL через http.request
+    -- 2. ПРОБУЕМ http.request (SirHurt, ScriptWare, Fluxus)
     if http and http.request then
         local success, response = pcall(function()
             return http.request({
                 Url = url,
                 Method = "GET",
-                Timeout = timeout
+                Timeout = timeout,
+                Headers = {
+                    ["User-Agent"] = "Mozilla/5.0"
+                }
             })
         end)
-        if success and response and response.StatusCode == 200 then
-            if type(response.Body) == "string" then
-                print("   ✅ Загружено через http.request (оригинал)")
-                return response.Body, 200
+        if success and response then
+            if response.StatusCode == 200 then
+                if type(response.Body) == "string" then
+                    return response.Body, 200
+                end
+            else
+                print("   ❌ http.request: StatusCode=" .. tostring(response.StatusCode))
             end
         end
     end
     
-    -- Пробуем через HttpService:RequestAsync
-    local success, response = pcall(function()
-        return game:GetService("HttpService"):RequestAsync({
-            Url = url,
-            Method = "GET"
-        })
-    end)
-    if success and response and response.StatusCode == 200 then
-        if type(response.Body) == "string" then
-            print("   ✅ Загружено через HttpService (оригинал)")
-            return response.Body, 200
+    -- 3. ПРОБУЕМ HttpService:RequestAsync (через корутину)
+    local result = nil
+    local finished = false
+    local statusCode = nil
+    
+    local co = coroutine.create(function()
+        local success, response = pcall(function()
+            return game:GetService("HttpService"):RequestAsync({
+                Url = url,
+                Method = "GET",
+                Headers = {
+                    ["User-Agent"] = "Mozilla/5.0"
+                }
+            })
+        end)
+        if success and response then
+            statusCode = response.StatusCode
+            if response.StatusCode == 200 then
+                result = response.Body
+            end
+        else
+            print("   ❌ HttpService:RequestAsync failed")
         end
+        finished = true
+    end)
+    
+    coroutine.resume(co)
+    
+    local startTime = tick()
+    while not finished and tick() - startTime < timeout do
+        task.wait(0.05)
+    end
+    
+    if finished and statusCode == 200 then
+        return result, 200
+    end
+    
+    if statusCode then
+        print("   ❌ HttpService: StatusCode=" .. tostring(statusCode))
     end
     
     print("   ❌ Все методы загрузки не удались!")
@@ -312,38 +214,112 @@ local function httpGetSync(url, timeout)
 end
 
 -- ============================================
+-- 5. УНИВЕРСАЛЬНЫЙ POST
+-- ============================================
+local function httpPostSync(url, data, timeout)
+    timeout = timeout or 15
+    local body = game:GetService("HttpService"):JSONEncode(data)
+    
+    if syn and syn.request then
+        local success, response = pcall(function()
+            return syn.request({
+                Url = url,
+                Method = "POST",
+                Headers = {
+                    ["Content-Type"] = "application/json",
+                    ["User-Agent"] = "Mozilla/5.0"
+                },
+                Body = body,
+                Timeout = timeout
+            })
+        end)
+        if success and response and response.StatusCode == 200 then
+            if type(response.Body) == "string" then
+                return game:GetService("HttpService"):JSONDecode(response.Body), 200
+            end
+        end
+    end
+    
+    if http and http.request then
+        local success, response = pcall(function()
+            return http.request({
+                Url = url,
+                Method = "POST",
+                Headers = {
+                    ["Content-Type"] = "application/json",
+                    ["User-Agent"] = "Mozilla/5.0"
+                },
+                Body = body,
+                Timeout = timeout
+            })
+        end)
+        if success and response and response.StatusCode == 200 then
+            if type(response.Body) == "string" then
+                return game:GetService("HttpService"):JSONDecode(response.Body), 200
+            end
+        end
+    end
+    
+    local success, response = pcall(function()
+        return game:GetService("HttpService"):RequestAsync({
+            Url = url,
+            Method = "POST",
+            Headers = {
+                ["Content-Type"] = "application/json"
+            },
+            Body = body
+        })
+    end)
+    if success and response and response.StatusCode == 200 then
+        if type(response.Body) == "string" then
+            return game:GetService("HttpService"):JSONDecode(response.Body), 200
+        end
+    end
+    
+    return nil, nil
+end
+
+-- ============================================
 -- 6. ПРОВЕРКА ВЕРСИИ
 -- ============================================
 local function checkVersion()
     print("🔍 Проверка версии...")
-    local response, status = httpGetSync(CONFIG.VERSION_URL, 10)
+    local url = "https://aura-cheats-bot.onrender.com/api/v6/version"
+    local response, status = httpGetSync(url, 10)
     if not response then
         print("⚠️ Не удалось проверить версию. Пропускаем.")
         return true
     end
     
-    local latestVersion = response:gsub("%s+", "")
-    local function splitVersion(v)
-        local parts = {}
-        for part in v:gmatch("[^.]+") do
-            table.insert(parts, tonumber(part) or 0)
-        end
-        return parts
-    end
-    
-    local current = splitVersion(CONFIG.VERSION)
-    local latest = splitVersion(latestVersion)
-    
-    for i = 1, math.max(#current, #latest) do
-        local c = current[i] or 0
-        local l = latest[i] or 0
-        if c ~= l then
-            if c < l then
-                print("⚠️ ВЕРСИЯ УСТАРЕЛА! Текущая: " .. CONFIG.VERSION .. ", Последняя: " .. latestVersion)
+    local data = game:GetService("HttpService"):JSONDecode(response)
+    if data and data.version then
+        local latestVersion = data.version
+        print("   📥 Серверная версия: " .. latestVersion)
+        print("   💻 Локальная версия: " .. CONFIG.VERSION)
+        
+        local function splitVersion(v)
+            local parts = {}
+            for part in v:gmatch("[^.]+") do
+                table.insert(parts, tonumber(part) or 0)
             end
-            return true
+            return parts
+        end
+        
+        local current = splitVersion(CONFIG.VERSION)
+        local latest = splitVersion(latestVersion)
+        
+        for i = 1, math.max(#current, #latest) do
+            local c = current[i] or 0
+            local l = latest[i] or 0
+            if c ~= l then
+                if c < l then
+                    print("⚠️ ВЕРСИЯ УСТАРЕЛА! Текущая: " .. CONFIG.VERSION .. ", Последняя: " .. latestVersion)
+                end
+                return true
+            end
         end
     end
+    
     return true
 end
 
@@ -358,7 +334,7 @@ local function checkKeyOnServer(key, userId)
     local url = CONFIG.API_URL .. "/check"
     local data = { key = key, userId = userId }
     
-    local response, status = universalRequestSync("POST", url, data, 15)
+    local response, status = httpPostSync(url, data, 15)
     
     if not response then
         print("⚠️ Сервер недоступен, используем локальные данные")
@@ -406,7 +382,7 @@ local function activateKey(key)
         placeId = game.PlaceId or 0
     }
     
-    local response, status = universalRequestSync("POST", url, data, 15)
+    local response, status = httpPostSync(url, data, 15)
     
     if not response then
         return false, "❌ Ошибка подключения к серверу"
@@ -430,7 +406,7 @@ local function activateKey(key)
             placeId = game.PlaceId or 0
         }
         local sessionUrl = CONFIG.API_URL .. "/session"
-        local sessionResponse, sessionStatus = universalRequestSync("POST", sessionUrl, sessionData, 15)
+        local sessionResponse, sessionStatus = httpPostSync(sessionUrl, sessionData, 15)
         if sessionResponse and sessionResponse.status == "success" then
             print("✅ Сессия создана: " .. sessionResponse.session)
             return true, {
@@ -450,7 +426,7 @@ local function activateKey(key)
 end
 
 -- ============================================
--- 9. ЗАГРУЗКА СКРИПТА
+-- 9. ЗАГРУЗКА СКРИПТА С СЕРВЕРА (УНИВЕРСАЛЬНЫЙ GET)
 -- ============================================
 local function loadScriptFromServer(session_token)
     print("📥 Загрузка скрипта с сервера...")
@@ -468,6 +444,7 @@ local function loadScriptFromServer(session_token)
         )
         
         print("⏳ Загрузка скрипта...")
+        print("   📡 " .. url)
         
         local raw_response, status = httpGetSync(url, 30)
         
@@ -521,7 +498,7 @@ local function loadScriptFromServer(session_token)
             placeId = game.PlaceId or 0
         }
         local sessionUrl = CONFIG.API_URL .. "/session"
-        local sessionResponse, sessionStatus = universalRequestSync("POST", sessionUrl, sessionData, 15)
+        local sessionResponse, sessionStatus = httpPostSync(sessionUrl, sessionData, 15)
         if not sessionResponse or sessionResponse.status ~= "success" then
             print("❌ Ошибка создания сессии")
             return false
@@ -858,7 +835,7 @@ if saved and saved.key and saved.userId == player.UserId then
                 placeId = game.PlaceId or 0
             }
             local sessionUrl = CONFIG.API_URL .. "/session"
-            local sessionResponse, sessionStatus = universalRequestSync("POST", sessionUrl, sessionData, 15)
+            local sessionResponse, sessionStatus = httpPostSync(sessionUrl, sessionData, 15)
             if sessionResponse and sessionResponse.status == "success" then
                 saved.session_token = sessionResponse.session
                 saveData({
