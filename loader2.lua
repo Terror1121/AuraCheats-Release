@@ -1,13 +1,10 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.43
--- FIX: АСИНХРОННАЯ РАСШИФРОВКА XOR (НЕТ ЗАВИСАНИЙ!)
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.44
+-- FIX: МАКСИМАЛЬНАЯ ОПТИМИЗАЦИЯ XOR
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.43")
+print("🔧 Загрузка AuraCheats v5.44")
 
--- ============================================
--- 1. КОНФИГУРАЦИЯ
--- ============================================
 local CONFIG = {
     API_URL = "https://aura-cheats-bot.onrender.com/api/v6",
     SAVE_FILE = "AuraCheatsKeyData",
@@ -200,33 +197,31 @@ local function asyncRequest(url, method, data, callback, timeout)
 end
 
 -- ============================================
--- 5. АСИНХРОННАЯ РАСШИФРОВКА XOR
+-- 5. БЫСТРАЯ РАСШИФРОВКА XOR
 -- ============================================
-local function decryptXORAsync(encrypted_bytes, userId, callback)
-    task.spawn(function()
-        print("📦 Расшифровываем XOR... (" .. #encrypted_bytes .. " байт)")
-        
-        local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
-        local decrypted = ""
-        local total = #encrypted_bytes
-        local lastProgress = 0
-        
-        for i = 1, total do
-            local byte = string.byte(encrypted_bytes, i)
-            local keyByte = string.byte(key, (i - 1) % #key + 1)
-            decrypted = decrypted .. string.char(bit32.bxor(byte, keyByte))
-            
-            local progress = math.floor(i / total * 100)
-            if progress >= lastProgress + 10 then
-                lastProgress = progress
-                print("   ⏳ Расшифровка: " .. progress .. "%")
-                task.wait()
-            end
-        end
-        
-        print("✅ Расшифровка завершена! (" .. #decrypted .. " байт)")
-        callback(decrypted)
-    end)
+local function decryptXOR(encrypted_bytes, userId)
+    local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
+    local key_len = #key
+    local total = #encrypted_bytes
+    
+    -- Конвертируем ключ в таблицу байтов один раз
+    local key_bytes = {}
+    for i = 1, key_len do
+        key_bytes[i] = string.byte(key, i)
+    end
+    
+    -- Конвертируем encrypted в таблицу байтов
+    local encrypted_bytes_table = { string.byte(encrypted_bytes, 1, total) }
+    
+    -- XOR в цикле по числам (быстрее)
+    local decrypted_bytes = {}
+    for i = 1, total do
+        local key_idx = ((i - 1) % key_len) + 1
+        decrypted_bytes[i] = bit32.bxor(encrypted_bytes_table[i], key_bytes[key_idx])
+    end
+    
+    -- Собираем строку из таблицы (быстрее чем конкатенация)
+    return string.char(table.unpack(decrypted_bytes))
 end
 
 -- ============================================
@@ -304,41 +299,46 @@ local function loadScriptFromServerAsync(session_token, userId)
             return
         end
         
-        -- ✅ АСИНХРОННАЯ РАСШИФРОВКА
-        decryptXORAsync(encrypted_bytes, userId, function(decrypted)
-            local saved = loadData()
-            local keyData = nil
-            
-            if saved then
-                keyData = {
-                    isValid = true,
-                    key = saved.key,
-                    userId = saved.userId,
-                    activationDate = saved.activationDate,
-                    expirationDate = saved.expirationDate,
-                    session_token = session_token
-                }
-            else
-                local currentTime = os.time()
-                keyData = {
-                    isValid = true,
-                    key = "Unknown",
-                    userId = userId,
-                    activationDate = currentTime,
-                    expirationDate = currentTime + (86400 * 7),
-                    session_token = session_token
-                }
-            end
-            
-            local func, err = loadstring(decrypted)
-            if not func then
-                print("❌ Ошибка компиляции: " .. tostring(err))
-                return
-            end
-            
-            print("✅ Скрипт загружен!")
-            pcall(func, keyData)
-        end)
+        print("📦 Расшифровываем XOR... (" .. #encrypted_bytes .. " байт)")
+        
+        -- ⚡ БЫСТРАЯ РАСШИФРОВКА (в основном потоке, но очень быстро)
+        local startTime = tick()
+        local decrypted = decryptXOR(encrypted_bytes, userId)
+        local elapsed = tick() - startTime
+        print("✅ Расшифровка завершена за " .. string.format("%.2f", elapsed) .. " сек!")
+        
+        local saved = loadData()
+        local keyData = nil
+        
+        if saved then
+            keyData = {
+                isValid = true,
+                key = saved.key,
+                userId = saved.userId,
+                activationDate = saved.activationDate,
+                expirationDate = saved.expirationDate,
+                session_token = session_token
+            }
+        else
+            local currentTime = os.time()
+            keyData = {
+                isValid = true,
+                key = "Unknown",
+                userId = userId,
+                activationDate = currentTime,
+                expirationDate = currentTime + (86400 * 7),
+                session_token = session_token
+            }
+        end
+        
+        local func, err = loadstring(decrypted)
+        if not func then
+            print("❌ Ошибка компиляции: " .. tostring(err))
+            return
+        end
+        
+        print("✅ Скрипт загружен!")
+        pcall(func, keyData)
     end)
 end
 
