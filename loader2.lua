@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.37
--- FIX: УНИВЕРСАЛЬНЫЙ GET ДЛЯ ВСЕХ ИНЖЕКТОРОВ
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.39
+-- FIX: ПРОВЕРКА STATUSCODE В GET-ЗАПРОСАХ
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.37")
+print("🔧 Загрузка AuraCheats v5.39")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -116,12 +116,11 @@ local function parseDate(dateString)
 end
 
 -- ============================================
--- 4. УНИВЕРСАЛЬНЫЙ GET (РАБОТАЕТ НА ВСЕХ)
+-- 4. УНИВЕРСАЛЬНЫЙ GET (С ВОЗВРАТОМ STATUSCODE)
 -- ============================================
 local function httpGetSync(url, timeout)
     timeout = timeout or 15
     
-    -- 1. ПРОБУЕМ syn.request (Synapse, Xeno, Krnl, Solara, Velocity)
     if syn and syn.request then
         local success, response = pcall(function()
             return syn.request({
@@ -141,11 +140,11 @@ local function httpGetSync(url, timeout)
                 end
             else
                 print("   ❌ syn.request: StatusCode=" .. tostring(response.StatusCode))
+                return nil, response.StatusCode
             end
         end
     end
     
-    -- 2. ПРОБУЕМ http.request (SirHurt, ScriptWare, Fluxus)
     if http and http.request then
         local success, response = pcall(function()
             return http.request({
@@ -164,11 +163,11 @@ local function httpGetSync(url, timeout)
                 end
             else
                 print("   ❌ http.request: StatusCode=" .. tostring(response.StatusCode))
+                return nil, response.StatusCode
             end
         end
     end
     
-    -- 3. ПРОБУЕМ HttpService:RequestAsync (через корутину)
     local result = nil
     local finished = false
     local statusCode = nil
@@ -201,16 +200,17 @@ local function httpGetSync(url, timeout)
         task.wait(0.05)
     end
     
-    if finished and statusCode == 200 then
-        return result, 200
+    if finished then
+        if statusCode == 200 then
+            return result, 200
+        else
+            print("   ❌ HttpService: StatusCode=" .. tostring(statusCode))
+            return nil, statusCode or 500
+        end
     end
     
-    if statusCode then
-        print("   ❌ HttpService: StatusCode=" .. tostring(statusCode))
-    end
-    
-    print("   ❌ Все методы загрузки не удались!")
-    return nil, "all_methods_failed"
+    print("   ❌ Таймаут!")
+    return nil, "timeout"
 end
 
 -- ============================================
@@ -426,7 +426,7 @@ local function activateKey(key)
 end
 
 -- ============================================
--- 9. ЗАГРУЗКА СКРИПТА С СЕРВЕРА (УНИВЕРСАЛЬНЫЙ GET)
+-- 9. ЗАГРУЗКА СКРИПТА С СЕРВЕРА
 -- ============================================
 local function loadScriptFromServer(session_token)
     print("📥 Загрузка скрипта с сервера...")
