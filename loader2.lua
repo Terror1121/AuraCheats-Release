@@ -125,11 +125,13 @@ local function universalRequestSync(method, url, data, timeout)
     local body = nil
     local headers = { ["Content-Type"] = "application/json" }
     
-    if data then
+        if data then
         local success, result = pcall(function()
             return game:GetService("HttpService"):JSONEncode(data)
         end)
-        if not success then return nil, "json_error"
+        if not success then 
+            return nil, "json_error"
+        end
         body = result
     end
     
