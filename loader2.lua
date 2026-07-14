@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.25
--- FIX: httpGet возвращает статус, обработка 401
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.31
+-- FIX: АСИНХРОННАЯ ЗАГРУЗКА ДЛЯ XENO
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.25")
+print("🔧 Загрузка AuraCheats v5.31")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -26,7 +26,6 @@ local function writeFileUniversal(path, data)
         function() if writefile then return writefile(path, data) end end,
         function() if secure_call then return secure_call(function() return writefile(path, data) end) end end
     }
-    
     for _, func in ipairs(writeFuncs) do
         local success, result = pcall(func)
         if success and result then return true end
@@ -43,7 +42,6 @@ local function readFileUniversal(path)
         function() if readfile then return readfile(path) end end,
         function() if secure_call then return secure_call(function() return readfile(path) end) end end
     }
-    
     for _, func in ipairs(readFuncs) do
         local success, result = pcall(func)
         if success and result then return result end
@@ -60,7 +58,6 @@ local function isFileUniversal(path)
         function() if isfile then return isfile(path) end end,
         function() if secure_call then return secure_call(function() return isfile(path) end) end end
     }
-    
     for _, func in ipairs(checkFuncs) do
         local success, result = pcall(func)
         if success and result then return result end
@@ -73,7 +70,6 @@ end
 -- ============================================
 local function saveData(data)
     _G.AuraCheatsKeyData = data
-    
     local success, json = pcall(function()
         return game:GetService("HttpService"):JSONEncode(data)
     end)
@@ -87,7 +83,6 @@ local function loadData()
     if _G.AuraCheatsKeyData then
         return _G.AuraCheatsKeyData
     end
-    
     if isFileUniversal(CONFIG.SAVE_FILE) then
         local content = readFileUniversal(CONFIG.SAVE_FILE)
         if content then
@@ -123,89 +118,119 @@ local function parseDate(dateString)
 end
 
 -- ============================================
--- 7. HTTP ЗАПРОСЫ (С ТАЙМАУТОМ И ПАРСИНГОМ JSON)
+-- 7. УНИВЕРСАЛЬНЫЙ ЗАПРОС (АСИНХРОННЫЙ)
 -- ============================================
-local function sendRequest(endpoint, data, timeout)
+local function universalRequest(method, url, data, timeout, callback)
     timeout = timeout or 10
-    local url = CONFIG.API_URL .. endpoint
-    local json = game:GetService("HttpService"):JSONEncode(data)
+    local body = nil
+    local headers = { ["Content-Type"] = "application/json" }
     
-    print("📡 Отправка запроса: " .. endpoint)
-    print("   URL: " .. url)
-    
-    local requestFuncs = {
-        function()
-            if syn and syn.request then
-                return syn.request({
-                    Url = url,
-                    Method = "POST",
-                    Headers = { ["Content-Type"] = "application/json" },
-                    Body = json,
-                    Timeout = timeout
-                })
-            end
-        end,
-        function()
-            if http and http.request then
-                return http.request({
-                    Url = url,
-                    Method = "POST",
-                    Headers = { ["Content-Type"] = "application/json" },
-                    Body = json,
-                    Timeout = timeout
-                })
-            end
-        end,
-        function()
-            return game:GetService("HttpService"):RequestAsync({
-                Url = url,
-                Method = "POST",
-                Headers = { ["Content-Type"] = "application/json" },
-                Body = json
-            })
+    if data then
+        local success, result = pcall(function()
+            return game:GetService("HttpService"):JSONEncode(data)
+        end)
+        if success then body = result else
+            if callback then callback(nil, "json_error") end
+            return
         end
-    }
+    end
     
-    for _, func in ipairs(requestFuncs) do
-        local success, response = pcall(func)
+    -- syn.request
+    if syn and syn.request then
+        local success, response = pcall(function()
+            return syn.request({
+                Url = url,
+                Method = method,
+                Headers = headers,
+                Body = body,
+                Timeout = timeout
+            })
+        end)
         if success and response then
-            print("📥 Ответ получен, статус: " .. tostring(response.StatusCode))
-            
             if response.StatusCode == 200 then
-                local decoded = nil
-                local parseSuccess, parseResult = pcall(function()
-                    return game:GetService("HttpService"):JSONDecode(response.Body)
-                end)
-                if parseSuccess then
-                    decoded = parseResult
-                    print("✅ JSON распарсен успешно")
-                    return decoded, nil
-                else
-                    print("❌ Ошибка парсинга JSON: " .. tostring(parseResult))
-                    print("📄 Сырой ответ: " .. tostring(response.Body):sub(1, 200))
-                    return nil, "JSON parse error"
+                if type(response.Body) == "string" then
+                    local success2, decoded = pcall(function()
+                        return game:GetService("HttpService"):JSONDecode(response.Body)
+                    end)
+                    if success2 then
+                        if callback then callback(decoded, response.StatusCode) end
+                        return
+                    end
                 end
             else
-                print("⚠️ Статус не 200: " .. tostring(response.StatusCode))
-                print("📄 Ответ: " .. tostring(response.Body):sub(1, 200))
+                if callback then callback(nil, response.StatusCode) end
+                return
             end
         end
     end
     
-    return nil, "HTTP error"
+    -- http.request
+    if http and http.request then
+        local success, response = pcall(function()
+            return http.request({
+                Url = url,
+                Method = method,
+                Headers = headers,
+                Body = body,
+                Timeout = timeout
+            })
+        end)
+        if success and response then
+            if response.StatusCode == 200 then
+                if type(response.Body) == "string" then
+                    local success2, decoded = pcall(function()
+                        return game:GetService("HttpService"):JSONDecode(response.Body)
+                    end)
+                    if success2 then
+                        if callback then callback(decoded, response.StatusCode) end
+                        return
+                    end
+                end
+            else
+                if callback then callback(nil, response.StatusCode) end
+                return
+            end
+        end
+    end
+    
+    -- HttpService:RequestAsync
+    local success, response = pcall(function()
+        return game:GetService("HttpService"):RequestAsync({
+            Url = url,
+            Method = method,
+            Headers = headers,
+            Body = body
+        })
+    end)
+    if success and response then
+        if response.StatusCode == 200 then
+            local success2, decoded = pcall(function()
+                return game:GetService("HttpService"):JSONDecode(response.Body)
+            end)
+            if success2 then
+                if callback then callback(decoded, response.StatusCode) end
+                return
+            end
+        else
+            if callback then callback(nil, response.StatusCode) end
+            return
+        end
+    end
+    
+    if callback then callback(nil, nil) end
 end
 
 -- ============================================
--- 8. GET ЗАПРОС С ВОЗВРАТОМ СТАТУСА
+-- 8. GET ЗАПРОС (АСИНХРОННЫЙ)
 -- ============================================
-local function httpGet(url, timeout)
+local function httpGetAsync(url, timeout, callback)
     timeout = timeout or 10
     
     if url:find("raw.githubusercontent.com") then
         url = url:gsub("raw.githubusercontent.com", "raw.githack.com")
     end
     
-    -- ПЫТАЕМСЯ ЧЕРЕЗ syn.request
+    -- syn.request
     if syn and syn.request then
         local success, response = pcall(function()
             return syn.request({
@@ -214,18 +239,15 @@ local function httpGet(url, timeout)
                 Timeout = timeout
             })
         end)
-        if success and response then
-            if response.StatusCode == 200 then
-                if type(response.Body) == "string" then
-                    return response.Body, 200
-                end
-            else
-                return nil, response.StatusCode
+        if success and response and response.StatusCode == 200 then
+            if type(response.Body) == "string" then
+                if callback then callback(response.Body, 200) end
+                return
             end
         end
     end
     
-    -- ПЫТАЕМСЯ ЧЕРЕЗ http.request
+    -- http.request
     if http and http.request then
         local success, response = pcall(function()
             return http.request({
@@ -234,191 +256,121 @@ local function httpGet(url, timeout)
                 Timeout = timeout
             })
         end)
-        if success and response then
-            if response.StatusCode == 200 then
-                if type(response.Body) == "string" then
-                    return response.Body, 200
+        if success and response and response.StatusCode == 200 then
+            if type(response.Body) == "string" then
+                if callback then callback(response.Body, 200) end
+                return
+            end
+        end
+    end
+    
+    -- HttpService:RequestAsync
+    local success, response = pcall(function()
+        return game:GetService("HttpService"):RequestAsync({
+            Url = url,
+            Method = "GET"
+        })
+    end)
+    if success and response and response.StatusCode == 200 then
+        if callback then callback(response.Body, 200) end
+        return
+    end
+    
+    if callback then callback(nil, nil) end
+end
+
+-- ============================================
+-- 9. ПРОВЕРКА ВЕРСИИ (АСИНХРОННАЯ)
+-- ============================================
+local function checkVersionAsync(callback)
+    httpGetAsync(CONFIG.VERSION_URL, 10, function(response, status)
+        if not response then
+            print("⚠️ Не удалось проверить версию. Пропускаем.")
+            if callback then callback(true) end
+            return
+        end
+        
+        local latestVersion = response:gsub("%s+", "")
+        local function splitVersion(v)
+            local parts = {}
+            for part in v:gmatch("[^.]+") do
+                table.insert(parts, tonumber(part) or 0)
+            end
+            return parts
+        end
+        
+        local current = splitVersion(CONFIG.VERSION)
+        local latest = splitVersion(latestVersion)
+        
+        for i = 1, math.max(#current, #latest) do
+            local c = current[i] or 0
+            local l = latest[i] or 0
+            if c ~= l then
+                if c < l then
+                    print("⚠️ ВЕРСИЯ УСТАРЕЛА! Текущая: " .. CONFIG.VERSION .. ", Последняя: " .. latestVersion)
                 end
-            else
-                return nil, response.StatusCode
+                if callback then callback(true) end
+                return
             end
         end
-    end
-    
-    -- ПЫТАЕМСЯ ЧЕРЕЗ game:HttpGet (с таймаутом через корутину)
-    local result = nil
-    local finished = false
-    local statusCode = nil
-    
-    local co = coroutine.create(function()
-        local success, response = pcall(function()
-            return game:GetService("HttpService"):RequestAsync({
-                Url = url,
-                Method = "GET"
-            })
-        end)
-        if success and response then
-            statusCode = response.StatusCode
-            if response.StatusCode == 200 then
-                result = response.Body
-            end
-        end
-        finished = true
-    end)
-    
-    coroutine.resume(co)
-    
-    local startTime = tick()
-    while not finished and tick() - startTime < timeout do
-        task.wait(0.1)
-    end
-    
-    if not finished then
-        print("⚠️ Таймаут GET запроса (" .. timeout .. "с): " .. url)
-        return nil, "timeout"
-    end
-    
-    if statusCode == 200 then
-        return result, 200
-    else
-        return nil, statusCode or "error"
-    end
-end
-
--- ============================================
--- 9. ПРОВЕРКА ВЕРСИИ
--- ============================================
-local versionWarningShown = false
-
-local function getCachedVersion()
-    if isFileUniversal(CONFIG.SAVE_FILE .. "_version") then
-        local success, data = pcall(function()
-            return readFileUniversal(CONFIG.SAVE_FILE .. "_version")
-        end)
-        if success and data then
-            return data:gsub("%s+", "")
-        end
-    end
-    return nil
-end
-
-local function saveVersionCache(version)
-    pcall(function()
-        writeFileUniversal(CONFIG.SAVE_FILE .. "_version", version)
+        
+        if callback then callback(true) end
     end)
 end
 
-local function checkVersion()
-    local latestVersion = getCachedVersion()
-    
-    if not latestVersion then
-        local success, response = pcall(function()
-            return game:HttpGet(CONFIG.VERSION_URL)
-        end)
-        if success and response then
-            latestVersion = response:gsub("%s+", "")
-            saveVersionCache(latestVersion)
-        end
-    end
-    
-    if not latestVersion then
-        print("⚠️ Не удалось проверить версию. Пропускаем проверку.")
-        return true
-    end
-    
-    local function splitVersion(v)
-        local parts = {}
-        for part in v:gmatch("[^.]+") do
-            table.insert(parts, tonumber(part) or 0)
-        end
-        return parts
-    end
-    
-    local current = splitVersion(CONFIG.VERSION)
-    local latest = splitVersion(latestVersion)
-    
-    for i = 1, math.max(#current, #latest) do
-        local c = current[i] or 0
-        local l = latest[i] or 0
-        if c ~= l then
-            if c < l and not versionWarningShown then
-                versionWarningShown = true
-                print("")
-                print("⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️")
-                print("⚠️  ВНИМАНИЕ! ВЕРСИЯ ЧИТА УСТАРЕЛА!")
-                print("⚠️  Текущая версия: " .. CONFIG.VERSION)
-                print("⚠️  Последняя версия: " .. latestVersion)
-                print("⚠️  Обновите чит для стабильной работы!")
-                print("⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️")
-                print("")
-            end
-            return true
-        end
-    end
-    
-    return true
-end
-
 -- ============================================
--- 10. ПРОВЕРКА КЛЮЧА НА СЕРВЕРЕ (ЧЕРЕЗ /check)
+-- 10. ПРОВЕРКА КЛЮЧА (АСИНХРОННАЯ)
 -- ============================================
-local function checkKeyOnServer(key, userId)
-    print("📡 Проверка ключа на сервере (через /check)...")
+local function checkKeyOnServerAsync(key, userId, callback)
+    print("📡 Проверка ключа на сервере...")
     print("   KEY: " .. key)
     print("   User ID: " .. userId)
     
-    local data = {
-        key = key,
-        userId = userId
-    }
+    local url = CONFIG.API_URL .. "/check"
+    local data = { key = key, userId = userId }
     
-    local response, err = sendRequest("/check", data, 15)
-    
-    if not response then
-        print("❌ Ошибка проверки ключа: " .. tostring(err))
-        return false, "❌ Ошибка подключения к серверу"
-    end
-    
-    local status = response.status or response.valid
-    local message = response.message or response.msg or "none"
-    
-    print("📥 Ответ статус: " .. tostring(status))
-    print("📥 Ответ сообщение: " .. tostring(message))
-    
-    if status == "active" or status == true then
-        print("✅ Ключ активен на сервере!")
-        return true, response
-    end
-    
-    if status == "expired" then
-        print("❌ Ключ истек на сервере!")
-        return false, "❌ Срок действия ключа истек. Введите новый ключ."
-    end
-    
-    if status == "inactive" then
-        print("❌ Ключ не активирован на сервере!")
-        return false, "❌ Ключ не активирован. Введите новый ключ."
-    end
-    
-    if status == "error" then
-        print("❌ Ошибка: " .. message)
-        return false, "❌ " .. message
-    end
-    
-    print("❌ Неизвестный статус: " .. tostring(status))
-    return false, "❌ Неизвестная ошибка. Код: " .. tostring(status)
+    universalRequest("POST", url, data, 15, function(response, status)
+        if not response then
+            print("⚠️ Сервер недоступен, используем локальные данные")
+            if callback then callback(true, nil) end
+            return
+        end
+        
+        print("📥 Ответ статус: " .. (response.status or "unknown"))
+        
+        if response.status == "active" then
+            print("✅ Ключ активен!")
+            if callback then callback(true, response) end
+            return
+        end
+        
+        if response.status == "expired" then
+            print("❌ Ключ истек!")
+            if callback then callback(false, "❌ Срок действия ключа истек") end
+            return
+        end
+        
+        if response.status == "inactive" then
+            print("❌ Ключ не активирован!")
+            if callback then callback(false, "❌ Ключ не активирован") end
+            return
+        end
+        
+        if callback then callback(false, response.message or "❌ Неизвестная ошибка") end
+    end)
 end
 
 -- ============================================
--- 11. АКТИВАЦИЯ КЛЮЧА (ЧЕРЕЗ /activate)
+-- 11. АКТИВАЦИЯ КЛЮЧА (АСИНХРОННАЯ)
 -- ============================================
-local function activateKey(key)
-    print("📡 Активация ключа на сервере (через /activate)...")
+local function activateKeyAsync(key, callback)
+    print("📡 Активация ключа...")
     print("   KEY: " .. key)
     
     local player = game.Players.LocalPlayer
     local execName = getexecutorname and getexecutorname() or "Unknown"
     
+    local url = CONFIG.API_URL .. "/activate"
     local data = {
         key = key,
         userId = player.UserId,
@@ -429,76 +381,66 @@ local function activateKey(key)
         placeId = game.PlaceId or 0
     }
     
-    local response, err = sendRequest("/activate", data, 15)
-    
-    if not response then
-        print("❌ Ошибка активации: " .. tostring(err))
-        return false, "❌ Ошибка подключения к серверу"
-    end
-    
-    local status = response.status
-    local message = response.message or "none"
-    
-    print("📥 Ответ статус: " .. tostring(status))
-    print("📥 Ответ сообщение: " .. tostring(message))
-    
-    if status == "success" then
-        print("✅ Ключ активирован!")
-        if response.session_token then
-            print("✅ Сессия получена: " .. response.session_token)
-        end
-        return true, response
-    end
-    
-    if status == "error" and message == "Key already activated" then
-        print("✅ Ключ уже активирован, создаем сессию...")
-        
-        local sessionData = {
-            userId = player.UserId,
-            executor = execName,
-            version = CONFIG.VERSION,
-            gameId = game.GameId or 0,
-            placeId = game.PlaceId or 0
-        }
-        
-        local sessionResponse, sessionErr = sendRequest("/session", sessionData, 15)
-        if not sessionResponse or sessionResponse.status ~= "success" then
-            print("❌ Ошибка создания сессии: " .. tostring(sessionErr))
-            return false, "❌ Ошибка создания сессии"
+    universalRequest("POST", url, data, 15, function(response, status)
+        if not response then
+            if callback then callback(false, "❌ Ошибка подключения к серверу") end
+            return
         end
         
-        print("✅ Сессия создана: " .. tostring(sessionResponse.session))
+        if response.status == "success" then
+            print("✅ Ключ активирован!")
+            if response.session_token then
+                print("✅ Сессия получена: " .. response.session_token)
+            end
+            if callback then callback(true, response) end
+            return
+        end
         
-        return true, {
-            session_token = sessionResponse.session,
-            expires_at = response.expires_at,
-            userId = player.UserId
-        }
-    end
-    
-    if status == "error" and message == "Key expired" then
-        print("❌ Ключ истек!")
-        return false, "❌ Срок действия ключа истек. Введите новый ключ."
-    end
-    
-    print("❌ Ключ неактивен: " .. message)
-    return false, "❌ " .. message
+        if response.status == "error" and response.message == "Key already activated" then
+            print("✅ Ключ уже активирован, создаем сессию...")
+            local sessionData = {
+                userId = player.UserId,
+                executor = execName,
+                version = CONFIG.VERSION,
+                gameId = game.GameId or 0,
+                placeId = game.PlaceId or 0
+            }
+            local sessionUrl = CONFIG.API_URL .. "/session"
+            universalRequest("POST", sessionUrl, sessionData, 15, function(sessionResponse, sessionStatus)
+                if sessionResponse and sessionResponse.status == "success" then
+                    print("✅ Сессия создана: " .. sessionResponse.session)
+                    if callback then callback(true, {
+                        session_token = sessionResponse.session,
+                        expires_at = response.expires_at,
+                        userId = player.UserId
+                    }) end
+                    return
+                end
+                if callback then callback(false, "❌ Ошибка создания сессии") end
+            end)
+            return
+        end
+        
+        if response.status == "error" and response.message == "Key expired" then
+            if callback then callback(false, "❌ Срок действия ключа истек") end
+            return
+        end
+        
+        if callback then callback(false, response.message or "❌ Неизвестная ошибка") end
+    end)
 end
 
 -- ============================================
--- 12. ЗАГРУЗКА СКРИПТА С СЕРВЕРА (С ОБРАБОТКОЙ 401)
+-- 12. ЗАГРУЗКА СКРИПТА (АСИНХРОННАЯ)
 -- ============================================
-local function loadScriptFromServer(session_token)
+local function loadScriptFromServerAsync(session_token, callback)
     print("📥 Загрузка скрипта с сервера...")
     
     local player = game.Players.LocalPlayer
     local userId = player.UserId
     local currentSession = session_token
     
-    -- ============================================
-    -- ВНУТРЕННЯЯ ФУНКЦИЯ ЗАГРУЗКИ
-    -- ============================================
-    local function doLoadScript(token)
+    local function doLoadScript(token, cb)
         local url = string.format(
             "%s/script?session=%s&user_id=%s",
             CONFIG.API_URL,
@@ -506,235 +448,115 @@ local function loadScriptFromServer(session_token)
             userId
         )
         
-        print("⏳ Ожидание ответа от сервера (до 30 секунд)...")
-        print("   URL: " .. url)
+        print("⏳ Загрузка скрипта...")
         
-        local raw_response, status = httpGet(url, 30)
-        
-        -- ✅ ОБРАБАТЫВАЕМ 401
-        if status == 401 then
-            print("⚠️ Сервер вернул 401: Invalid session")
-            return nil, "invalid_session"
-        end
-        
-        if not raw_response then
-            print("❌ Ошибка загрузки скрипта (таймаут или ошибка)")
-            return nil, "timeout"
-        end
-        
-        print("✅ Ответ получен, размер: " .. #raw_response .. " байт")
-        
-        local response_data = nil
-        local parseSuccess, parseResult = pcall(function()
-            return game:GetService("HttpService"):JSONDecode(raw_response)
-        end)
-        
-        if not parseSuccess or not parseResult then
-            print("❌ Ошибка парсинга JSON: " .. tostring(parseResult))
-            return nil, "parse_error"
-        end
-        
-        response_data = parseResult
-        
-        if response_data.status == "error" then
-            print("⚠️ Ошибка сервера: " .. (response_data.message or "unknown"))
-            
-            if response_data.message == "Invalid session" or 
-               response_data.message == "Session expired" or
-               response_data.message == "Session not found" then
-                return nil, "invalid_session"
+        httpGetAsync(url, 30, function(raw_response, status)
+            if not raw_response then
+                print("❌ Ошибка загрузки скрипта")
+                if cb then cb(nil, "timeout") end
+                return
             end
             
-            return nil, "server_error"
-        end
-        
-        if response_data.status ~= "success" then
-            print("❌ Неизвестный статус: " .. tostring(response_data.status))
-            return nil, "unknown_status"
-        end
-        
-        return response_data, "success"
+            local response_data = nil
+            local parseSuccess, parseResult = pcall(function()
+                return game:GetService("HttpService"):JSONDecode(raw_response)
+            end)
+            
+            if not parseSuccess or not parseResult then
+                print("❌ Ошибка парсинга JSON")
+                if cb then cb(nil, "parse_error") end
+                return
+            end
+            
+            response_data = parseResult
+            
+            if response_data.status == "error" then
+                if response_data.message == "Invalid session" or 
+                   response_data.message == "Session expired" then
+                    if cb then cb(nil, "invalid_session") end
+                    return
+                end
+                if cb then cb(nil, "server_error") end
+                return
+            end
+            
+            if response_data.status ~= "success" then
+                if cb then cb(nil, "unknown_status") end
+                return
+            end
+            
+            if cb then cb(response_data, "success") end
+        end)
     end
     
-    -- ============================================
-    -- ПЕРВАЯ ПОПЫТКА
-    -- ============================================
-    local response_data, status = doLoadScript(currentSession)
-    
-    -- ✅ Если сессия невалидна → создаем новую
-    if status == "invalid_session" then
-        print("🔄 Сессия невалидна на сервере, создаем новую через /session...")
-        
-        local execName = getexecutorname and getexecutorname() or "Unknown"
-        local sessionData = {
-            userId = userId,
-            executor = execName,
-            version = CONFIG.VERSION,
-            gameId = game.GameId or 0,
-            placeId = game.PlaceId or 0
-        }
-        
-        local sessionResponse, sessionErr = sendRequest("/session", sessionData, 15)
-        if not sessionResponse or sessionResponse.status ~= "success" then
-            print("❌ Ошибка создания сессии: " .. tostring(sessionErr))
-            return false
+    doLoadScript(currentSession, function(response_data, status)
+        if status == "invalid_session" then
+            print("🔄 Сессия невалидна, создаем новую...")
+            local execName = getexecutorname and getexecutorname() or "Unknown"
+            local sessionData = {
+                userId = userId,
+                executor = execName,
+                version = CONFIG.VERSION,
+                gameId = game.GameId or 0,
+                placeId = game.PlaceId or 0
+            }
+            local sessionUrl = CONFIG.API_URL .. "/session"
+            universalRequest("POST", sessionUrl, sessionData, 15, function(sessionResponse, sessionStatus)
+                if not sessionResponse or sessionResponse.status ~= "success" then
+                    print("❌ Ошибка создания сессии")
+                    if callback then callback(false) end
+                    return
+                end
+                
+                local new_session_token = sessionResponse.session
+                print("✅ Новая сессия создана: " .. new_session_token)
+                
+                local saved = loadData()
+                if saved then
+                    saved.session_token = new_session_token
+                    saveData(saved)
+                end
+                
+                currentSession = new_session_token
+                doLoadScript(currentSession, function(new_response, new_status)
+                    if new_status ~= "success" then
+                        print("❌ Ошибка загрузки скрипта: " .. new_status)
+                        if callback then callback(false) end
+                        return
+                    end
+                    
+                    if callback then callback(true, new_response, currentSession) end
+                end)
+            end)
+            return
         end
-        
-        local new_session_token = sessionResponse.session
-        print("✅ Новая сессия создана: " .. new_session_token)
-        
-        local saved = loadData()
-        if saved then
-            saved.session_token = new_session_token
-            saveData(saved)
-            print("✅ session_token обновлен в файле")
-        end
-        
-        currentSession = new_session_token
-        
-        -- Пробуем загрузить скрипт с новой сессией
-        response_data, status = doLoadScript(currentSession)
         
         if status ~= "success" then
-            print("❌ Ошибка загрузки скрипта с новой сессией: " .. status)
-            return false
+            print("❌ Ошибка загрузки скрипта: " .. status)
+            if callback then callback(false) end
+            return
         end
-    end
-    
-    if status ~= "success" then
-        print("❌ Ошибка загрузки скрипта: " .. status)
-        return false
-    end
-    
-    -- ============================================
-    -- ДЕКОДИРУЕМ И РАСШИФРОВЫВАЕМ
-    -- ============================================
-    local encrypted_b64 = response_data.script
-    if not encrypted_b64 then
-        print("❌ Нет поля 'script'")
-        return false
-    end
-    
-    print("📦 Декодируем Base64...")
-    
-    local encrypted_bytes = nil
-    
-    local decodeFuncs = {
-        function() if crypt and crypt.base64decode then return crypt.base64decode(encrypted_b64) end end,
-        function() if syn and syn.crypt and syn.crypt.base64 and syn.crypt.base64.decode then return syn.crypt.base64.decode(encrypted_b64) end end,
-        function() if base64 and base64.decode then return base64.decode(encrypted_b64) end end
-    }
-    
-    for _, func in ipairs(decodeFuncs) do
-        local success, result = pcall(func)
-        if success and result then
-            encrypted_bytes = result
-            break
-        end
-    end
-    
-    if not encrypted_bytes then
-        print("❌ Ошибка декодирования Base64")
-        return false
-    end
-    
-    print("📦 Расшифровываем XOR (" .. #encrypted_bytes .. " байт)...")
-    
-    local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
-    local decrypted = ""
-    for i = 1, #encrypted_bytes do
-        local byte = string.byte(encrypted_bytes, i)
-        local keyByte = string.byte(key, (i - 1) % #key + 1)
-        decrypted = decrypted .. string.char(bit32.bxor(byte, keyByte))
-    end
-    
-    print("📦 Расшифровано байт: " .. #decrypted)
-    
-    local saved = loadData()
-    local keyData = nil
-    
-    if saved then
-        keyData = {
-            isValid = true,
-            key = saved.key,
-            userId = saved.userId,
-            activationDate = saved.activationDate,
-            expirationDate = saved.expirationDate,
-            session_token = currentSession
-        }
-        print("📅 Дата активации: " .. os.date("%d.%m.%Y %H:%M", saved.activationDate))
-        print("📅 Дата истечения: " .. os.date("%d.%m.%Y %H:%M", saved.expirationDate))
-    else
-        local currentTime = os.time()
-        keyData = {
-            isValid = true,
-            key = "Unknown",
-            userId = userId,
-            activationDate = currentTime,
-            expirationDate = currentTime + (86400 * 7),
-            session_token = currentSession
-        }
-    end
-    
-    local func, err = loadstring(decrypted)
-    if not func then
-        print("❌ Ошибка компиляции: " .. (err or "unknown"))
-        return false
-    end
-    
-    print("✅ Скрипт загружен!")
-    
-    print("⏳ Запуск через 2.5 секунды...")
-    task.wait(2.5)
-    
-    local execSuccess, execErr = pcall(func, keyData)
-    if execSuccess then
-        print("✅ Скрипт выполнен успешно!")
-    else
-        print("❌ Ошибка выполнения: " .. tostring(execErr))
-        return false
-    end
-    
-    return true
+        
+        if callback then callback(true, response_data, currentSession) end
+    end)
 end
 
 -- ============================================
--- 13. GUI ВВОДА КЛЮЧА
+-- 13. GUI ВВОДА КЛЮЧА (БЕЗ ИЗМЕНЕНИЙ)
 -- ============================================
 local function showGUI(errorMessage)
     local player = game.Players.LocalPlayer
-    if not player then
-        print("❌ Нет игрока")
-        return
-    end
-    
-    if not player.PlayerGui then
-        print("❌ PlayerGui не найден!")
-        return
-    end
+    if not player then return end
     
     local oldGui = player.PlayerGui:FindFirstChild("AuraKeySystem")
-    if oldGui then
-        oldGui:Destroy()
-    end
+    if oldGui then oldGui:Destroy() end
     
-    local gui = nil
-    local success, result = pcall(function()
-        local newGui = Instance.new("ScreenGui")
-        newGui.Name = "AuraKeySystem"
-        newGui.Parent = player.PlayerGui
-        newGui.ResetOnSpawn = false
-        newGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        newGui.DisplayOrder = 999
-        return newGui
-    end)
-    
-    if not success or not result then
-        print("❌ Не удалось создать GUI: " .. tostring(result))
-        return
-    end
-    
-    gui = result
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "AuraKeySystem"
+    gui.Parent = player.PlayerGui
+    gui.ResetOnSpawn = false
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    gui.DisplayOrder = 999
     
     local bg = Instance.new("Frame")
     bg.Size = UDim2.new(1, 0, 1, 0)
@@ -842,61 +664,67 @@ local function showGUI(errorMessage)
         btn.Text = "ПРОВЕРКА..."
         
         task.spawn(function()
-            local ok, result = activateKey(key)
-            
-            if ok then
-                status.Text = "✅ Ключ активирован!"
-                status.TextColor3 = Color3.fromRGB(100, 255, 100)
-                
-                if result and result.session_token then
-                    local exp = parseDate(result.expires_at)
-                    saveData({
-                        key = key,
-                        userId = result.userId or player.UserId,
-                        expires_at = result.expires_at,
-                        session_token = result.session_token,
-                        activationDate = os.time(),
-                        expirationDate = exp or (os.time() + 86400 * 7)
-                    })
+            activateKeyAsync(key, function(ok, result)
+                if ok then
+                    status.Text = "✅ Ключ активирован!"
+                    status.TextColor3 = Color3.fromRGB(100, 255, 100)
                     
-                    task.wait(0.5)
-                    gui:Destroy()
-                    loadScriptFromServer(result.session_token)
+                    if result and result.session_token then
+                        local exp = parseDate(result.expires_at)
+                        saveData({
+                            key = key,
+                            userId = result.userId or player.UserId,
+                            expires_at = result.expires_at,
+                            session_token = result.session_token,
+                            activationDate = os.time(),
+                            expirationDate = exp or (os.time() + 86400 * 7)
+                        })
+                        
+                        task.wait(0.5)
+                        gui:Destroy()
+                        loadScriptFromServerAsync(result.session_token, function(success)
+                            if not success then
+                                print("❌ Ошибка загрузки скрипта после активации")
+                                status.Text = "❌ Ошибка загрузки скрипта"
+                                status.TextColor3 = Color3.fromRGB(255, 80, 80)
+                                btn.Active = true
+                                btn.BackgroundColor3 = Color3.fromRGB(50, 50, 200)
+                                btn.Text = "АКТИВИРОВАТЬ"
+                            end
+                        end)
+                    else
+                        status.Text = "❌ Не получен session_token!"
+                        status.TextColor3 = Color3.fromRGB(255, 80, 80)
+                        btn.Active = true
+                        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 200)
+                        btn.Text = "АКТИВИРОВАТЬ"
+                    end
                 else
-                    status.Text = "❌ Не получен session_token!"
+                    attempts = attempts + 1
+                    status.Text = "❌ " .. tostring(result)
                     status.TextColor3 = Color3.fromRGB(255, 80, 80)
                     btn.Active = true
                     btn.BackgroundColor3 = Color3.fromRGB(50, 50, 200)
                     btn.Text = "АКТИВИРОВАТЬ"
+                    
+                    if attempts >= 3 then
+                        status.Text = "❌ Превышено количество попыток!"
+                        btn.Active = false
+                        btn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+                    end
                 end
-            else
-                attempts = attempts + 1
-                status.Text = "❌ " .. tostring(result)
-                status.TextColor3 = Color3.fromRGB(255, 80, 80)
-                btn.Active = true
-                btn.BackgroundColor3 = Color3.fromRGB(50, 50, 200)
-                btn.Text = "АКТИВИРОВАТЬ"
-                
-                if attempts >= 3 then
-                    status.Text = "❌ Превышено количество попыток!"
-                    btn.Active = false
-                    btn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-                end
-            end
+            end)
         end)
     end
     
     btn.MouseButton1Click:Connect(doActivate)
-    
     input.FocusLost:Connect(function(enter)
-        if enter then
-            doActivate()
-        end
+        if enter then doActivate() end
     end)
 end
 
 -- ============================================
--- 14. ЗАПУСК (С ПРОВЕРКОЙ НА СЕРВЕРЕ)
+-- 14. ЗАПУСК (АСИНХРОННЫЙ)
 -- ============================================
 print("📅 " .. os.date("%Y-%m-%d %H:%M:%S"))
 
@@ -909,10 +737,7 @@ end
 print("👤 User ID: " .. player.UserId)
 print("👤 User: " .. player.Name)
 
-if not checkVersion() then
-    print("❌ Ошибка проверки версии")
-end
-
+-- ДИАГНОСТИКА
 print("🔴 ДИАГНОСТИКА ФАЙЛОВ:")
 print("🔴 isFileUniversal: " .. tostring(isFileUniversal(CONFIG.SAVE_FILE)))
 if isFileUniversal(CONFIG.SAVE_FILE) then
@@ -923,91 +748,78 @@ if isFileUniversal(CONFIG.SAVE_FILE) then
             return game:GetService("HttpService"):JSONDecode(content)
         end)
         if success then
-            print("🔴 Распарсенные данные:")
             print("🔴   key: " .. tostring(data.key))
             print("🔴   userId: " .. tostring(data.userId))
             print("🔴   session_token: " .. tostring(data.session_token))
-            print("🔴   expirationDate: " .. tostring(data.expirationDate))
-        else
-            print("🔴 Ошибка парсинга JSON")
         end
     end
-else
-    print("🔴 Файл НЕ СУЩЕСТВУЕТ")
 end
-print("🔴 _G.AuraCheatsKeyData: " .. tostring(_G.AuraCheatsKeyData))
 
 local saved = loadData()
 
 if saved and saved.key and saved.userId == player.UserId then
     print("🔑 Найден сохраненный ключ: " .. saved.key)
     
-    local ok, result = checkKeyOnServer(saved.key, player.UserId)
-    
-    if ok then
-        print("✅ Ключ валиден на сервере, загрузка скрипта...")
-        
-        local newExpiration = result.expires_at
-        local expTime = nil
-        if newExpiration then
-            expTime = parseDate(newExpiration)
-        end
-        
-        saveData({
-            key = saved.key,
-            userId = saved.userId,
-            expires_at = newExpiration,
-            session_token = saved.session_token,
-            activationDate = saved.activationDate,
-            expirationDate = expTime or saved.expirationDate
-        })
-        
-        if not saved.session_token then
-            print("⚠️ Нет session_token, создаем через /session...")
-            local execName = getexecutorname and getexecutorname() or "Unknown"
-            local sessionData = {
-                userId = player.UserId,
-                executor = execName,
-                version = CONFIG.VERSION,
-                gameId = game.GameId or 0,
-                placeId = game.PlaceId or 0
-            }
-            local sessionResponse, sessionErr = sendRequest("/session", sessionData, 15)
-            if sessionResponse and sessionResponse.status == "success" then
-                saved.session_token = sessionResponse.session
-                saveData({
-                    key = saved.key,
-                    userId = saved.userId,
-                    expires_at = newExpiration,
-                    session_token = sessionResponse.session,
-                    activationDate = saved.activationDate,
-                    expirationDate = expTime or saved.expirationDate
-                })
-                print("✅ session_token создан: " .. saved.session_token)
+    checkKeyOnServerAsync(saved.key, player.UserId, function(ok, result)
+        if ok then
+            print("✅ Ключ валиден, загрузка скрипта...")
+            
+            if not saved.session_token then
+                print("⚠️ Нет session_token, создаем...")
+                local execName = getexecutorname and getexecutorname() or "Unknown"
+                local sessionData = {
+                    userId = player.UserId,
+                    executor = execName,
+                    version = CONFIG.VERSION,
+                    gameId = game.GameId or 0,
+                    placeId = game.PlaceId or 0
+                }
+                local sessionUrl = CONFIG.API_URL .. "/session"
+                universalRequest("POST", sessionUrl, sessionData, 15, function(sessionResponse, sessionStatus)
+                    if sessionResponse and sessionResponse.status == "success" then
+                        saved.session_token = sessionResponse.session
+                        saveData({
+                            key = saved.key,
+                            userId = saved.userId,
+                            session_token = sessionResponse.session,
+                            activationDate = saved.activationDate,
+                            expirationDate = saved.expirationDate
+                        })
+                        print("✅ session_token создан: " .. saved.session_token)
+                    end
+                    
+                    if saved.session_token then
+                        loadScriptFromServerAsync(saved.session_token, function(success)
+                            if not success then
+                                print("❌ Ошибка загрузки скрипта")
+                                showGUI("❌ Ошибка загрузки скрипта")
+                            end
+                        end)
+                    else
+                        print("❌ Нет session_token!")
+                        showGUI("❌ Ошибка получения сессии")
+                    end
+                end)
             else
-                print("❌ Не удалось создать session_token: " .. tostring(sessionErr))
+                loadScriptFromServerAsync(saved.session_token, function(success)
+                    if not success then
+                        print("❌ Ошибка загрузки скрипта")
+                        showGUI("❌ Ошибка загрузки скрипта")
+                    end
+                end)
             end
-        end
-        
-        if saved.session_token then
-            loadScriptFromServer(saved.session_token)
         else
-            print("❌ Нет session_token!")
-            showGUI("❌ Ошибка получения сессии")
+            print("❌ Ключ невалиден: " .. tostring(result))
+            if isFileUniversal(CONFIG.SAVE_FILE) then
+                pcall(function()
+                    if syn and syn.delfile then syn.delfile(CONFIG.SAVE_FILE) end
+                    if delfile then delfile(CONFIG.SAVE_FILE) end
+                end)
+            end
+            _G.AuraCheatsKeyData = nil
+            showGUI(tostring(result))
         end
-    else
-        print("❌ Ключ невалиден на сервере, требуется активация")
-        print("   Причина: " .. tostring(result))
-        
-        if isFileUniversal(CONFIG.SAVE_FILE) then
-            pcall(function()
-                if syn and syn.delfile then syn.delfile(CONFIG.SAVE_FILE) end
-                if delfile then delfile(CONFIG.SAVE_FILE) end
-            end)
-        end
-        _G.AuraCheatsKeyData = nil
-        showGUI(tostring(result) or "❌ Ключ неактивен. Введите новый ключ.")
-    end
+    end)
 else
     print("🔑 Требуется активация")
     showGUI()
