@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.44
--- FIX: МАКСИМАЛЬНАЯ ОПТИМИЗАЦИЯ XOR
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.46
+-- FIX: РАСШИФРОВКА ПО ЧАСТЯМ (НЕТ СТЕК ОВЕРФЛОУ!)
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.44")
+print("🔧 Загрузка AuraCheats v5.46")
 
 local CONFIG = {
     API_URL = "https://aura-cheats-bot.onrender.com/api/v6",
@@ -197,31 +197,45 @@ local function asyncRequest(url, method, data, callback, timeout)
 end
 
 -- ============================================
--- 5. БЫСТРАЯ РАСШИФРОВКА XOR
+-- 5. РАСШИФРОВКА XOR (ПО ЧАСТЯМ)
 -- ============================================
 local function decryptXOR(encrypted_bytes, userId)
     local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
     local key_len = #key
     local total = #encrypted_bytes
+    local chunk_size = 8192  -- 8 KB за раз (безопасно для стека)
     
-    -- Конвертируем ключ в таблицу байтов один раз
     local key_bytes = {}
     for i = 1, key_len do
         key_bytes[i] = string.byte(key, i)
     end
     
-    -- Конвертируем encrypted в таблицу байтов
-    local encrypted_bytes_table = { string.byte(encrypted_bytes, 1, total) }
+    local result_parts = {}
+    local offset = 1
     
-    -- XOR в цикле по числам (быстрее)
-    local decrypted_bytes = {}
-    for i = 1, total do
-        local key_idx = ((i - 1) % key_len) + 1
-        decrypted_bytes[i] = bit32.bxor(encrypted_bytes_table[i], key_bytes[key_idx])
+    while offset <= total do
+        local chunk_end = math.min(offset + chunk_size - 1, total)
+        local chunk_len = chunk_end - offset + 1
+        
+        -- Берем chunk из encrypted
+        local chunk = string.sub(encrypted_bytes, offset, chunk_end)
+        local chunk_bytes = { string.byte(chunk, 1, chunk_len) }
+        
+        -- XOR для chunk
+        local decrypted_chunk = {}
+        for i = 1, chunk_len do
+            local global_idx = offset + i - 1
+            local key_idx = ((global_idx - 1) % key_len) + 1
+            decrypted_chunk[i] = bit32.bxor(chunk_bytes[i], key_bytes[key_idx])
+        end
+        
+        -- Добавляем часть результата
+        table.insert(result_parts, string.char(table.unpack(decrypted_chunk)))
+        
+        offset = chunk_end + 1
     end
     
-    -- Собираем строку из таблицы (быстрее чем конкатенация)
-    return string.char(table.unpack(decrypted_bytes))
+    return table.concat(result_parts)
 end
 
 -- ============================================
@@ -301,7 +315,6 @@ local function loadScriptFromServerAsync(session_token, userId)
         
         print("📦 Расшифровываем XOR... (" .. #encrypted_bytes .. " байт)")
         
-        -- ⚡ БЫСТРАЯ РАСШИФРОВКА (в основном потоке, но очень быстро)
         local startTime = tick()
         local decrypted = decryptXOR(encrypted_bytes, userId)
         local elapsed = tick() - startTime
