@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.32
--- FIX: ГИБРИДНАЯ ЗАГРУЗКА (АСИНХРОННО + ОЖИДАНИЕ)
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.35
+-- FIX: ТОЛЬКО НАДЕЖНЫЕ ЗЕРКАЛА (БЕЗ JSDELIVR)
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.32")
+print("🔧 Загрузка AuraCheats v5.35")
 
 -- ============================================
 -- 1. КОНФИГУРАЦИЯ
@@ -13,8 +13,8 @@ local CONFIG = {
     SAVE_FILE = "AuraCheatsKeyData",
     ENCRYPT_KEY = "AuraCheats2024",
     VERSION = "2.2.25",
-    MAIN_URL = "https://raw.githack.com/Terror1121/AuraCheats-Release/main/main.lua",
-    VERSION_URL = "https://raw.githack.com/Terror1121/AuraCheats-Release/main/version.txt"
+    MAIN_URL = "https://raw.githubusercontent.com/Terror1121/AuraCheats-Release/main/main.lua",
+    VERSION_URL = "https://raw.githubusercontent.com/Terror1121/AuraCheats-Release/main/version.txt"
 }
 
 -- ============================================
@@ -109,7 +109,7 @@ local function parseDate(dateString)
 end
 
 -- ============================================
--- 4. СИНХРОННЫЙ ЗАПРОС (ДЛЯ ГЛАВНОГО ПОТОКА)
+-- 4. СИНХРОННЫЙ POST ЗАПРОС
 -- ============================================
 local function universalRequestSync(method, url, data, timeout)
     timeout = timeout or 10
@@ -204,84 +204,123 @@ local function universalRequestSync(method, url, data, timeout)
 end
 
 -- ============================================
--- 5. СИНХРОННЫЙ GET (С ТАЙМАУТОМ)
+-- 5. СИНХРОННЫЙ GET (НАДЕЖНЫЕ ЗЕРКАЛА)
 -- ============================================
 local function httpGetSync(url, timeout)
     timeout = timeout or 10
     
+    local originalUrl = url
+    local path = nil
+    
+    -- Извлекаем путь из URL
     if url:find("raw.githubusercontent.com") then
-        url = url:gsub("raw.githubusercontent.com", "raw.githack.com")
+        path = url:match("raw%.githubusercontent%.com/(.+)")
+    elseif url:find("raw.githack.com") then
+        path = url:match("raw%.githack%.com/(.+)")
     end
     
-    -- syn.request
-    if syn and syn.request then
-        local success, response = pcall(function()
-            return syn.request({
-                Url = url,
-                Method = "GET",
-                Timeout = timeout
-            })
-        end)
-        if success and response and response.StatusCode == 200 then
-            if type(response.Body) == "string" then
-                return response.Body, 200
+    if not path then
+        path = url
+    end
+    
+    -- ТОЛЬКО НАДЕЖНЫЕ ЗЕРКАЛА (без jsdelivr)
+    local mirrors = {
+        -- 1. githack (самый быстрый CDN)
+        {
+            url = "https://raw.githack.com/" .. path,
+            name = "githack"
+        },
+        -- 2. staticdn (альтернативный CDN)
+        {
+            url = "https://raw.staticdn.net/" .. path,
+            name = "staticdn"
+        },
+        -- 3. gitcdn (еще одно зеркало)
+        {
+            url = "https://gitcdn.xyz/repo/" .. path,
+            name = "gitcdn"
+        },
+        -- 4. Оригинальный GitHub (всегда актуально)
+        {
+            url = "https://raw.githubusercontent.com/" .. path,
+            name = "github"
+        }
+    }
+    
+    -- Пробуем каждое зеркало
+    for _, mirror in ipairs(mirrors) do
+        print("   🔄 Пробуем: " .. mirror.name)
+        
+        -- syn.request
+        if syn and syn.request then
+            local success, response = pcall(function()
+                return syn.request({
+                    Url = mirror.url,
+                    Method = "GET",
+                    Timeout = timeout
+                })
+            end)
+            if success and response and response.StatusCode == 200 then
+                if type(response.Body) == "string" then
+                    print("   ✅ Загружено через " .. mirror.name)
+                    return response.Body, 200
+                end
             end
+        end
+        
+        -- http.request
+        if http and http.request then
+            local success, response = pcall(function()
+                return http.request({
+                    Url = mirror.url,
+                    Method = "GET",
+                    Timeout = timeout
+                })
+            end)
+            if success and response and response.StatusCode == 200 then
+                if type(response.Body) == "string" then
+                    print("   ✅ Загружено через " .. mirror.name)
+                    return response.Body, 200
+                end
+            end
+        end
+        
+        -- HttpService:RequestAsync
+        local reqResult = nil
+        local finished = false
+        local statusCode = nil
+        
+        local co = coroutine.create(function()
+            local success, response = pcall(function()
+                return game:GetService("HttpService"):RequestAsync({
+                    Url = mirror.url,
+                    Method = "GET"
+                })
+            end)
+            if success and response then
+                statusCode = response.StatusCode
+                if response.StatusCode == 200 then
+                    reqResult = response.Body
+                end
+            end
+            finished = true
+        end)
+        
+        coroutine.resume(co)
+        
+        local startTime = tick()
+        while not finished and tick() - startTime < timeout do
+            task.wait(0.1)
+        end
+        
+        if finished and statusCode == 200 then
+            print("   ✅ Загружено через " .. mirror.name)
+            return reqResult, 200
         end
     end
     
-    -- http.request
-    if http and http.request then
-        local success, response = pcall(function()
-            return http.request({
-                Url = url,
-                Method = "GET",
-                Timeout = timeout
-            })
-        end)
-        if success and response and response.StatusCode == 200 then
-            if type(response.Body) == "string" then
-                return response.Body, 200
-            end
-        end
-    end
-    
-    -- HttpService:RequestAsync с таймаутом через корутину
-    local result = nil
-    local finished = false
-    local statusCode = nil
-    
-    local co = coroutine.create(function()
-        local success, response = pcall(function()
-            return game:GetService("HttpService"):RequestAsync({
-                Url = url,
-                Method = "GET"
-            })
-        end)
-        if success and response then
-            statusCode = response.StatusCode
-            if response.StatusCode == 200 then
-                result = response.Body
-            end
-        end
-        finished = true
-    end)
-    
-    coroutine.resume(co)
-    
-    local startTime = tick()
-    while not finished and tick() - startTime < timeout do
-        task.wait(0.1)
-    end
-    
-    if not finished then
-        return nil, "timeout"
-    end
-    
-    if statusCode == 200 then
-        return result, 200
-    else
-        return nil, statusCode or "error"
-    end
+    print("   ❌ Все зеркала не удались!")
+    return nil, "all_mirrors_failed"
 end
 
 -- ============================================
@@ -320,7 +359,7 @@ local function checkVersion()
 end
 
 -- ============================================
--- 7. ПРОВЕРКА КЛЮЧА (СИНХРОННАЯ)
+-- 7. ПРОВЕРКА КЛЮЧА
 -- ============================================
 local function checkKeyOnServer(key, userId)
     print("📡 Проверка ключа на сервере...")
@@ -358,7 +397,7 @@ local function checkKeyOnServer(key, userId)
 end
 
 -- ============================================
--- 8. АКТИВАЦИЯ КЛЮЧА (СИНХРОННАЯ)
+-- 8. АКТИВАЦИЯ КЛЮЧА
 -- ============================================
 local function activateKey(key)
     print("📡 Активация ключа...")
@@ -422,7 +461,7 @@ local function activateKey(key)
 end
 
 -- ============================================
--- 9. ЗАГРУЗКА СКРИПТА (СИНХРОННАЯ)
+-- 9. ЗАГРУЗКА СКРИПТА
 -- ============================================
 local function loadScriptFromServer(session_token)
     print("📥 Загрузка скрипта с сервера...")
@@ -590,7 +629,6 @@ local function loadScriptFromServer(session_token)
     
     print("✅ Скрипт загружен!")
     
-    -- Запускаем в отдельном потоке, но даем ему время
     task.spawn(function()
         print("⏳ Запуск через 1 секунду...")
         task.wait(1)
@@ -606,7 +644,7 @@ local function loadScriptFromServer(session_token)
 end
 
 -- ============================================
--- 10. GUI ВВОДА КЛЮЧА (СИНХРОННЫЙ)
+-- 10. GUI ВВОДА КЛЮЧА
 -- ============================================
 local function showGUI(errorMessage)
     local player = game.Players.LocalPlayer
