@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.47
--- FIX: БЕЗ table.unpack (НЕТ СТЕК ОВЕРФЛОУ!)
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.48
+-- FIX: table.concat (БЕЗ table.unpack, БЕЗ ЗАВИСАНИЙ!)
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.47")
+print("🔧 Загрузка AuraCheats v5.48")
 
 local CONFIG = {
     API_URL = "https://aura-cheats-bot.onrender.com/api/v6",
@@ -197,15 +197,16 @@ local function asyncRequest(url, method, data, callback, timeout)
 end
 
 -- ============================================
--- 5. РАСШИФРОВКА XOR (БЕЗ table.unpack)
+-- 5. РАСШИФРОВКА XOR (ЧЕРЕЗ ТАБЛИЦУ, БЕЗ UNPACK)
 -- ============================================
 local function decryptXOR(encrypted_bytes, userId)
     local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
     local key_len = #key
     local total = #encrypted_bytes
-    local chunk_size = 4096  -- 4 KB за раз (безопасно)
+    local chunk_size = 4096
     
-    local result = ""
+    local result_parts = {}
+    local part_index = 1
     
     for offset = 1, total, chunk_size do
         local chunk_end = math.min(offset + chunk_size - 1, total)
@@ -222,10 +223,11 @@ local function decryptXOR(encrypted_bytes, userId)
             decrypted_chunk = decrypted_chunk .. string.char(bit32.bxor(byte, key_byte))
         end
         
-        result = result .. decrypted_chunk
+        result_parts[part_index] = decrypted_chunk
+        part_index = part_index + 1
     end
     
-    return result
+    return table.concat(result_parts)
 end
 
 -- ============================================
