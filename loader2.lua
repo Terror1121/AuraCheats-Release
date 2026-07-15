@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.48
--- FIX: table.concat (БЕЗ table.unpack, БЕЗ ЗАВИСАНИЙ!)
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.49
+-- FIX: АСИНХРОННАЯ РАСШИФРОВКА + ПРОГРЕСС
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.48")
+print("🔧 Загрузка AuraCheats v5.49")
 
 local CONFIG = {
     API_URL = "https://aura-cheats-bot.onrender.com/api/v6",
@@ -197,37 +197,51 @@ local function asyncRequest(url, method, data, callback, timeout)
 end
 
 -- ============================================
--- 5. РАСШИФРОВКА XOR (ЧЕРЕЗ ТАБЛИЦУ, БЕЗ UNPACK)
+-- 5. АСИНХРОННАЯ РАСШИФРОВКА XOR (БЕЗ ЗАВИСАНИЙ!)
 -- ============================================
-local function decryptXOR(encrypted_bytes, userId)
-    local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
-    local key_len = #key
-    local total = #encrypted_bytes
-    local chunk_size = 4096
-    
-    local result_parts = {}
-    local part_index = 1
-    
-    for offset = 1, total, chunk_size do
-        local chunk_end = math.min(offset + chunk_size - 1, total)
-        local chunk_len = chunk_end - offset + 1
+local function decryptXORAsync(encrypted_bytes, userId, callback)
+    task.spawn(function()
+        local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
+        local key_len = #key
+        local total = #encrypted_bytes
+        local chunk_size = 4096
         
-        local chunk = string.sub(encrypted_bytes, offset, chunk_end)
-        local decrypted_chunk = ""
+        print("📦 Расшифровываем XOR... (" .. total .. " байт)")
         
-        for i = 1, chunk_len do
-            local global_idx = offset + i - 1
-            local key_idx = ((global_idx - 1) % key_len) + 1
-            local byte = string.byte(chunk, i)
-            local key_byte = string.byte(key, key_idx)
-            decrypted_chunk = decrypted_chunk .. string.char(bit32.bxor(byte, key_byte))
+        local result_parts = {}
+        local part_index = 1
+        local last_progress = 0
+        
+        for offset = 1, total, chunk_size do
+            local chunk_end = math.min(offset + chunk_size - 1, total)
+            local chunk_len = chunk_end - offset + 1
+            
+            local chunk = string.sub(encrypted_bytes, offset, chunk_end)
+            local decrypted_chunk = ""
+            
+            for i = 1, chunk_len do
+                local global_idx = offset + i - 1
+                local key_idx = ((global_idx - 1) % key_len) + 1
+                local byte = string.byte(chunk, i)
+                local key_byte = string.byte(key, key_idx)
+                decrypted_chunk = decrypted_chunk .. string.char(bit32.bxor(byte, key_byte))
+            end
+            
+            result_parts[part_index] = decrypted_chunk
+            part_index = part_index + 1
+            
+            local progress = math.floor((offset + chunk_len) / total * 100)
+            if progress >= last_progress + 10 then
+                last_progress = progress
+                print("   ⏳ Расшифровка: " .. progress .. "%")
+                task.wait()
+            end
         end
         
-        result_parts[part_index] = decrypted_chunk
-        part_index = part_index + 1
-    end
-    
-    return table.concat(result_parts)
+        local result = table.concat(result_parts)
+        print("✅ Расшифровка завершена! (" .. #result .. " байт)")
+        callback(result)
+    end)
 end
 
 -- ============================================
@@ -305,45 +319,41 @@ local function loadScriptFromServerAsync(session_token, userId)
             return
         end
         
-        print("📦 Расшифровываем XOR... (" .. #encrypted_bytes .. " байт)")
-        
-        local startTime = tick()
-        local decrypted = decryptXOR(encrypted_bytes, userId)
-        local elapsed = tick() - startTime
-        print("✅ Расшифровка завершена за " .. string.format("%.2f", elapsed) .. " сек!")
-        
-        local saved = loadData()
-        local keyData = nil
-        
-        if saved then
-            keyData = {
-                isValid = true,
-                key = saved.key,
-                userId = saved.userId,
-                activationDate = saved.activationDate,
-                expirationDate = saved.expirationDate,
-                session_token = session_token
-            }
-        else
-            local currentTime = os.time()
-            keyData = {
-                isValid = true,
-                key = "Unknown",
-                userId = userId,
-                activationDate = currentTime,
-                expirationDate = currentTime + (86400 * 7),
-                session_token = session_token
-            }
-        end
-        
-        local func, err = loadstring(decrypted)
-        if not func then
-            print("❌ Ошибка компиляции: " .. tostring(err))
-            return
-        end
-        
-        print("✅ Скрипт загружен!")
-        pcall(func, keyData)
+        -- АСИНХРОННАЯ РАСШИФРОВКА (НЕ БЛОКИРУЕТ)
+        decryptXORAsync(encrypted_bytes, userId, function(decrypted)
+            local saved = loadData()
+            local keyData = nil
+            
+            if saved then
+                keyData = {
+                    isValid = true,
+                    key = saved.key,
+                    userId = saved.userId,
+                    activationDate = saved.activationDate,
+                    expirationDate = saved.expirationDate,
+                    session_token = session_token
+                }
+            else
+                local currentTime = os.time()
+                keyData = {
+                    isValid = true,
+                    key = "Unknown",
+                    userId = userId,
+                    activationDate = currentTime,
+                    expirationDate = currentTime + (86400 * 7),
+                    session_token = session_token
+                }
+            end
+            
+            local func, err = loadstring(decrypted)
+            if not func then
+                print("❌ Ошибка компиляции: " .. tostring(err))
+                return
+            end
+            
+            print("✅ Скрипт загружен!")
+            pcall(func, keyData)
+        end)
     end)
 end
 
