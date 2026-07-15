@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.46
--- FIX: РАСШИФРОВКА ПО ЧАСТЯМ (НЕТ СТЕК ОВЕРФЛОУ!)
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.47
+-- FIX: БЕЗ table.unpack (НЕТ СТЕК ОВЕРФЛОУ!)
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.46")
+print("🔧 Загрузка AuraCheats v5.47")
 
 local CONFIG = {
     API_URL = "https://aura-cheats-bot.onrender.com/api/v6",
@@ -197,45 +197,35 @@ local function asyncRequest(url, method, data, callback, timeout)
 end
 
 -- ============================================
--- 5. РАСШИФРОВКА XOR (ПО ЧАСТЯМ)
+-- 5. РАСШИФРОВКА XOR (БЕЗ table.unpack)
 -- ============================================
 local function decryptXOR(encrypted_bytes, userId)
     local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
     local key_len = #key
     local total = #encrypted_bytes
-    local chunk_size = 8192  -- 8 KB за раз (безопасно для стека)
+    local chunk_size = 4096  -- 4 KB за раз (безопасно)
     
-    local key_bytes = {}
-    for i = 1, key_len do
-        key_bytes[i] = string.byte(key, i)
-    end
+    local result = ""
     
-    local result_parts = {}
-    local offset = 1
-    
-    while offset <= total do
+    for offset = 1, total, chunk_size do
         local chunk_end = math.min(offset + chunk_size - 1, total)
         local chunk_len = chunk_end - offset + 1
         
-        -- Берем chunk из encrypted
         local chunk = string.sub(encrypted_bytes, offset, chunk_end)
-        local chunk_bytes = { string.byte(chunk, 1, chunk_len) }
+        local decrypted_chunk = ""
         
-        -- XOR для chunk
-        local decrypted_chunk = {}
         for i = 1, chunk_len do
             local global_idx = offset + i - 1
             local key_idx = ((global_idx - 1) % key_len) + 1
-            decrypted_chunk[i] = bit32.bxor(chunk_bytes[i], key_bytes[key_idx])
+            local byte = string.byte(chunk, i)
+            local key_byte = string.byte(key, key_idx)
+            decrypted_chunk = decrypted_chunk .. string.char(bit32.bxor(byte, key_byte))
         end
         
-        -- Добавляем часть результата
-        table.insert(result_parts, string.char(table.unpack(decrypted_chunk)))
-        
-        offset = chunk_end + 1
+        result = result .. decrypted_chunk
     end
     
-    return table.concat(result_parts)
+    return result
 end
 
 -- ============================================
