@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.49
--- FIX: АСИНХРОННАЯ РАСШИФРОВКА + ПРОГРЕСС
+-- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.50
+-- FIX: МИКРО-ЧАНКИ + task.wait() (БЕЗ ЛАГОВ!)
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.49")
+print("🔧 Загрузка AuraCheats v5.50")
 
 local CONFIG = {
     API_URL = "https://aura-cheats-bot.onrender.com/api/v6",
@@ -197,14 +197,14 @@ local function asyncRequest(url, method, data, callback, timeout)
 end
 
 -- ============================================
--- 5. АСИНХРОННАЯ РАСШИФРОВКА XOR (БЕЗ ЗАВИСАНИЙ!)
+-- 5. АСИНХРОННАЯ РАСШИФРОВКА XOR (БЕЗ ЛАГОВ!)
 -- ============================================
 local function decryptXORAsync(encrypted_bytes, userId, callback)
     task.spawn(function()
         local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
         local key_len = #key
         local total = #encrypted_bytes
-        local chunk_size = 4096
+        local chunk_size = 1024  -- 1 KB за раз (микро-фризов НЕТ!)
         
         print("📦 Расшифровываем XOR... (" .. total .. " байт)")
         
@@ -234,8 +234,10 @@ local function decryptXORAsync(encrypted_bytes, userId, callback)
             if progress >= last_progress + 10 then
                 last_progress = progress
                 print("   ⏳ Расшифровка: " .. progress .. "%")
-                task.wait()
             end
+            
+            -- ⚡ РАЗМАЗЫВАЕМ НАГРУЗКУ (МИКРО-ФРИЗОВ НЕТ!)
+            task.wait()
         end
         
         local result = table.concat(result_parts)
@@ -319,7 +321,6 @@ local function loadScriptFromServerAsync(session_token, userId)
             return
         end
         
-        -- АСИНХРОННАЯ РАСШИФРОВКА (НЕ БЛОКИРУЕТ)
         decryptXORAsync(encrypted_bytes, userId, function(decrypted)
             local saved = loadData()
             local keyData = nil
