@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - PRIVATE SCRIPT SYSTEM v10.4
--- ТОТАЛЬНАЯ ОТЛАДКА (КАЖДЫЙ ШАГ В КОНСОЛЬ)
+-- 🔒 AURA CHEATS - PRIVATE SCRIPT SYSTEM v10.9
+-- FIX: БЕЗ button.Data (используем атрибуты)
 -- ============================================
 
-print("🔧 [1] Загрузка AuraCheats v10.4")
+print("🔧 [1] Загрузка AuraCheats v10.9")
 
 local player = game.Players.LocalPlayer
 if not player then
@@ -182,7 +182,6 @@ local function loadData()
     return nil
 end
 
--- ✅ ИСПРАВЛЕННАЯ parseDate
 local function parseDate(dateString)
     if not dateString then return nil end
     local year, month, day, hour, minute, second = dateString:match("(%d+)-(%d+)-(%d+)[T ](%d+):(%d+):(%d+)")
@@ -272,74 +271,6 @@ local function httpRequest(url, method, data, timeout)
     end
     
     return nil, nil
-end
-
-local function checkKeyOnServer(key, userId)
-    print("📡 Проверка ключа...")
-    local response, status = httpRequest(CONFIG.API_URL .. "/check", "POST", { key = key, userId = userId }, 10)
-    if not response then
-        print("⚠️ Сервер недоступен")
-        return true, nil
-    end
-    if response.status == "active" then
-        print("✅ Ключ активен!")
-        return true, response
-    else
-        return false, response.message or "Неизвестная ошибка"
-    end
-end
-
-local function activateKey(key, callback)
-    print("📡 Активация ключа...")
-    local data = {
-        key = key,
-        userId = player.UserId,
-        userName = player.Name,
-        executor = getexecutorname and getexecutorname() or "Unknown",
-        version = CONFIG.VERSION,
-        gameId = game.GameId or 0,
-        placeId = game.PlaceId or 0
-    }
-    local response, status = httpRequest(CONFIG.API_URL .. "/activate", "POST", data, 15)
-    if not response then
-        callback(false, "❌ Ошибка подключения")
-        return
-    end
-    if response.status == "success" then
-        print("✅ Ключ активирован!")
-        if response.session_token then
-            saveData({
-                key = key,
-                userId = player.UserId,
-                expires_at = response.expires_at,
-                session_token = response.session_token,
-                activationDate = os.time(),
-                expirationDate = parseDate(response.expires_at) or (os.time() + 86400 * 7)
-            })
-        end
-        callback(true, response)
-    elseif response.status == "error" and response.message == "Key already activated" then
-        print("✅ Ключ уже активирован, создаем сессию...")
-        local sessionResponse, sessionStatus = httpRequest(CONFIG.API_URL .. "/session", "POST", {
-            userId = player.UserId,
-            executor = getexecutorname and getexecutorname() or "Unknown",
-            version = CONFIG.VERSION
-        }, 15)
-        if sessionResponse and sessionResponse.status == "success" then
-            saveData({
-                key = key,
-                userId = player.UserId,
-                session_token = sessionResponse.session,
-                activationDate = os.time(),
-                expirationDate = os.time() + 86400 * 7
-            })
-            callback(true, { session_token = sessionResponse.session })
-        else
-            callback(false, "❌ Ошибка создания сессии")
-        end
-    else
-        callback(false, response.message or "❌ Неизвестная ошибка")
-    end
 end
 
 local function loadScriptFromServer(session_token, userId, moduleId)
@@ -465,7 +396,6 @@ print("🔴 [10] Вызов showScriptSelector()...")
 local function showScriptSelector()
     print("🔴 [11] showScriptSelector() начата")
     
-    -- Удаляем старый GUI
     local oldGui = player.PlayerGui:FindFirstChild("AuraLauncher")
     if oldGui then
         oldGui:Destroy()
@@ -705,6 +635,9 @@ local function showScriptSelector()
     local cardHeight = 56
     local spacing = 6
     
+    -- 🔥 ОТДЕЛЬНАЯ ТАБЛИЦА ДЛЯ ХРАНЕНИЯ ДАННЫХ КНОПОК
+    local buttonData = {}
+    
     for i, moduleData in ipairs(MODULES) do
         print("🔴 [32] Создаем карточку " .. i .. ": " .. moduleData.name)
         local button = Instance.new("TextButton")
@@ -768,8 +701,8 @@ local function showScriptSelector()
         statusDot.Font = Enum.Font.GothamBold
         statusDot.Parent = button
         
-        -- ✅ СОХРАНЯЕМ ДАННЫЕ
-        button.Data = {
+        -- 🔥 СОХРАНЯЕМ ДАННЫЕ В ОТДЕЛЬНУЮ ТАБЛИЦУ (НЕ В button.Data!)
+        buttonData[button] = {
             index = i,
             id = moduleData.id,
             needsAuth = moduleData.needsAuth,
@@ -804,7 +737,7 @@ local function showScriptSelector()
             selectedModule = i
             button.BackgroundColor3 = Color3.fromRGB(40, 40, 70)
             line.BackgroundTransparency = 0
-            updateInfoPanel(button.Data)
+            updateInfoPanel(buttonData[button])
         end)
         
         button.Size = UDim2.new(1, 0, 0, 0)
@@ -865,7 +798,7 @@ local function showScriptSelector()
         firstBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 70)
         local firstLine = firstBtn:FindFirstChild("line")
         if firstLine then firstLine.BackgroundTransparency = 0 end
-        updateInfoPanel(firstBtn.Data)
+        updateInfoPanel(buttonData[firstBtn])
     end
     print("✅ [37] Первый модуль выбран")
     
@@ -913,7 +846,6 @@ local function showScriptSelector()
     launchState.Parent = launchBtn
     print("✅ [42] launchState создан")
     
-    -- Анимация
     launchBtn.MouseEnter:Connect(function()
         launchBtn.BackgroundColor3 = Color3.fromRGB(160, 120, 255)
         launchBtn.Size = UDim2.new(0, 306, 0, 48)
@@ -945,7 +877,8 @@ local function showScriptSelector()
             return
         end
         
-        local data = btn.Data
+        -- 🔥 БЕРЕМ ДАННЫЕ ИЗ ОТДЕЛЬНОЙ ТАБЛИЦЫ
+        local data = buttonData[btn]
         if not data then
             print("❌ [46] Данные модуля не найдены")
             return
@@ -1019,4 +952,4 @@ else
     print("❌❌❌ [58] ОШИБКА: " .. tostring(err))
 end
 
-print("✅ [59] Private Script System v10.4 запущен!")
+print("✅ [59] Private Script System v10.9 запущен!")
