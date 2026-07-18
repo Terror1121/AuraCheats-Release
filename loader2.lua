@@ -952,4 +952,96 @@ else
     print("❌❌❌ [58] ОШИБКА: " .. tostring(err))
 end
 
+-- ============================================
+-- ДИАГНОСТИКА ЗАГРУЗКИ
+-- ============================================
+local function testLoadScript()
+    print("🔴 ТЕСТОВАЯ ЗАГРУЗКА СКРИПТА")
+    
+    local saved = loadData()
+    if not saved or not saved.session_token then
+        print("❌ Нет сессии")
+        return
+    end
+    
+    local url = string.format(
+        "%s/script?session=%s&user_id=%s&script_name=%s",
+        CONFIG.API_URL,
+        saved.session_token,
+        player.UserId,
+        "main"
+    )
+    
+    print("📡 URL: " .. url)
+    
+    local raw_response = nil
+    if syn and syn.request then
+        local success, response = pcall(function()
+            return syn.request({
+                Url = url,
+                Method = "GET",
+                Timeout = 15,
+                Headers = { ["User-Agent"] = "Mozilla/5.0" }
+            })
+        end)
+        if success and response then
+            print("📥 Статус: " .. response.StatusCode)
+            if response.StatusCode == 200 then
+                raw_response = response.Body
+                print("📦 Длина ответа: " .. #raw_response)
+                print("📦 Первые 200 символов: " .. raw_response:sub(1, 200))
+            else
+                print("❌ Ошибка HTTP: " .. response.StatusCode)
+            end
+        else
+            print("❌ Ошибка syn.request: " .. tostring(response))
+        end
+    end
+    
+    if not raw_response then
+        local success, response = pcall(function()
+            return game:GetService("HttpService"):RequestAsync({
+                Url = url,
+                Method = "GET",
+                Headers = { ["User-Agent"] = "Mozilla/5.0" }
+            })
+        end)
+        if success and response then
+            print("📥 Статус (HttpService): " .. response.StatusCode)
+            if response.StatusCode == 200 then
+                raw_response = response.Body
+                print("📦 Длина ответа: " .. #raw_response)
+                print("📦 Первые 200 символов: " .. raw_response:sub(1, 200))
+            else
+                print("❌ Ошибка HTTP: " .. response.StatusCode)
+            end
+        else
+            print("❌ Ошибка HttpService: " .. tostring(response))
+        end
+    end
+    
+    if raw_response then
+        local success, data = pcall(function()
+            return game:GetService("HttpService"):JSONDecode(raw_response)
+        end)
+        if success then
+            print("✅ JSON распарсен успешно!")
+            print("📊 status: " .. (data.status or "nil"))
+            if data.script then
+                print("📦 script: " .. data.script:sub(1, 50) .. "...")
+            else
+                print("❌ Нет поля 'script' в ответе!")
+            end
+        else
+            print("❌ Ошибка парсинга JSON: " .. tostring(data))
+        end
+    else
+        print("❌ Не удалось загрузить скрипт ни одним методом!")
+    end
+end
+
+-- Запускаем тест
+task.wait(0.5)
+testLoadScript()
+
 print("✅ [59] Private Script System v10.9 запущен!")
