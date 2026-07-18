@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - PRIVATE SCRIPT SYSTEM v10.9
--- FIX: БЕЗ button.Data (используем атрибуты)
+-- 🔒 AURA CHEATS - PRIVATE SCRIPT SYSTEM v10.10
+-- FIX: game:HttpGet() ДЛЯ ВСЕХ ИНЖЕКТОРОВ
 -- ============================================
 
-print("🔧 [1] Загрузка AuraCheats v10.9")
+print("🔧 [1] Загрузка AuraCheats v10.10")
 
 local player = game.Players.LocalPlayer
 if not player then
@@ -198,30 +198,80 @@ local function parseDate(dateString)
     return nil
 end
 
-local function httpRequest(url, method, data, timeout)
-    timeout = timeout or 15
-    local body = data and game:GetService("HttpService"):JSONEncode(data) or nil
+-- ============================================
+-- 4. HTTP ЗАПРОСЫ (РАБОТАЮТ НА ВСЕХ ИНЖЕКТОРАХ)
+-- ============================================
+
+-- ОСНОВНОЙ МЕТОД: game:HttpGet() — РАБОТАЕТ ВЕЗДЕ!
+local function httpGet(url)
+    print("📡 HTTP GET: " .. url)
+    
+    local success, result = pcall(function()
+        return game:HttpGet(url)
+    end)
+    
+    if success and result then
+        print("✅ game:HttpGet() успешно")
+        return result
+    end
+    
+    print("⚠️ game:HttpGet() не сработал, пробуем syn.request...")
+    
+    if syn and syn.request then
+        local success2, response = pcall(function()
+            return syn.request({
+                Url = url,
+                Method = "GET",
+                Timeout = 30,
+                Headers = { ["User-Agent"] = "Mozilla/5.0" }
+            })
+        end)
+        if success2 and response and response.StatusCode == 200 then
+            print("✅ syn.request успешно")
+            return response.Body
+        end
+    end
+    
+    print("⚠️ syn.request не сработал, пробуем http.request...")
+    
+    if http and http.request then
+        local success2, response = pcall(function()
+            return http.request({
+                Url = url,
+                Method = "GET",
+                Timeout = 30,
+                Headers = { ["User-Agent"] = "Mozilla/5.0" }
+            })
+        end)
+        if success2 and response and response.StatusCode == 200 then
+            print("✅ http.request успешно")
+            return response.Body
+        end
+    end
+    
+    print("❌ Все методы HTTP загрузки не удались!")
+    return nil
+end
+
+local function httpPost(url, data)
+    local body = game:GetService("HttpService"):JSONEncode(data)
     
     if syn and syn.request then
         local success, response = pcall(function()
             return syn.request({
                 Url = url,
-                Method = method,
+                Method = "POST",
                 Headers = {
                     ["Content-Type"] = "application/json",
                     ["User-Agent"] = "Mozilla/5.0"
                 },
                 Body = body,
-                Timeout = timeout
+                Timeout = 15
             })
         end)
-        if success and response then
-            if response.StatusCode == 200 then
-                if type(response.Body) == "string" then
-                    return game:GetService("HttpService"):JSONDecode(response.Body), 200
-                end
-            else
-                return nil, response.StatusCode
+        if success and response and response.StatusCode == 200 then
+            if type(response.Body) == "string" then
+                return game:GetService("HttpService"):JSONDecode(response.Body), 200
             end
         end
     end
@@ -230,49 +280,29 @@ local function httpRequest(url, method, data, timeout)
         local success, response = pcall(function()
             return http.request({
                 Url = url,
-                Method = method,
+                Method = "POST",
                 Headers = {
                     ["Content-Type"] = "application/json",
                     ["User-Agent"] = "Mozilla/5.0"
                 },
                 Body = body,
-                Timeout = timeout
+                Timeout = 15
             })
         end)
-        if success and response then
-            if response.StatusCode == 200 then
-                if type(response.Body) == "string" then
-                    return game:GetService("HttpService"):JSONDecode(response.Body), 200
-                end
-            else
-                return nil, response.StatusCode
-            end
-        end
-    end
-    
-    local success, response = pcall(function()
-        return game:GetService("HttpService"):RequestAsync({
-            Url = url,
-            Method = method,
-            Headers = {
-                ["Content-Type"] = "application/json"
-            },
-            Body = body
-        })
-    end)
-    if success and response then
-        if response.StatusCode == 200 then
+        if success and response and response.StatusCode == 200 then
             if type(response.Body) == "string" then
                 return game:GetService("HttpService"):JSONDecode(response.Body), 200
             end
-        else
-            return nil, response.StatusCode
         end
     end
     
+    print("❌ POST запрос не удался")
     return nil, nil
 end
 
+-- ============================================
+-- 5. ЗАГРУЗКА СКРИПТА С СЕРВЕРА (ЧЕРЕЗ game:HttpGet)
+-- ============================================
 local function loadScriptFromServer(session_token, userId, moduleId)
     local url = string.format(
         "%s/script?session=%s&user_id=%s&script_name=%s",
@@ -282,60 +312,40 @@ local function loadScriptFromServer(session_token, userId, moduleId)
         moduleId
     )
     print("📥 Загрузка модуля: " .. moduleId)
+    print("   📡 " .. url)
+    
     task.spawn(function()
-        local raw_response = nil
-        if syn and syn.request then
-            local success, response = pcall(function()
-                return syn.request({
-                    Url = url,
-                    Method = "GET",
-                    Timeout = 30,
-                    Headers = { ["User-Agent"] = "Mozilla/5.0" }
-                })
-            end)
-            if success and response and response.StatusCode == 200 then
-                raw_response = response.Body
-            end
-        end
-        if not raw_response and http and http.request then
-            local success, response = pcall(function()
-                return http.request({
-                    Url = url,
-                    Method = "GET",
-                    Timeout = 30,
-                    Headers = { ["User-Agent"] = "Mozilla/5.0" }
-                })
-            end)
-            if success and response and response.StatusCode == 200 then
-                raw_response = response.Body
-            end
-        end
-        if not raw_response then
-            local success, response = pcall(function()
-                return game:GetService("HttpService"):RequestAsync({
-                    Url = url,
-                    Method = "GET",
-                    Headers = { ["User-Agent"] = "Mozilla/5.0" }
-                })
-            end)
-            if success and response and response.StatusCode == 200 then
-                raw_response = response.Body
-            end
-        end
+        local raw_response = httpGet(url)
+        
         if not raw_response then
             print("❌ Ошибка загрузки модуля")
             return
         end
-        local response_data = game:GetService("HttpService"):JSONDecode(raw_response)
-        if not response_data or response_data.status ~= "success" then
-            print("❌ Ошибка ответа сервера")
+        
+        local response_data = nil
+        local success, result = pcall(function()
+            return game:GetService("HttpService"):JSONDecode(raw_response)
+        end)
+        if success and result then
+            response_data = result
+        else
+            print("❌ Ошибка парсинга JSON: " .. tostring(result))
             return
         end
+        
+        if response_data.status ~= "success" then
+            print("❌ Сервер вернул ошибку: " .. (response_data.message or "unknown"))
+            return
+        end
+        
         local encrypted_b64 = response_data.script
         if not encrypted_b64 then
             print("❌ Нет поля 'script'")
             return
         end
+        
+        print("📦 Декодируем Base64...")
+        
         local encrypted_bytes = nil
         if crypt and crypt.base64decode then
             local success, result = pcall(function() return crypt.base64decode(encrypted_b64) end)
@@ -349,10 +359,13 @@ local function loadScriptFromServer(session_token, userId, moduleId)
             local success, result = pcall(function() return base64.decode(encrypted_b64) end)
             if success then encrypted_bytes = result end
         end
+        
         if not encrypted_bytes then
             print("❌ Ошибка декодирования Base64")
             return
         end
+        
+        print("📦 Расшифровываем XOR... (" .. #encrypted_bytes .. " байт)")
         local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
         local decrypted = ""
         for i = 1, #encrypted_bytes do
@@ -360,36 +373,111 @@ local function loadScriptFromServer(session_token, userId, moduleId)
             local keyByte = string.byte(key, (i - 1) % #key + 1)
             decrypted = decrypted .. string.char(bit32.bxor(byte, keyByte))
         end
+        
         local saved = loadData()
-        local keyData = saved and {
-            isValid = true,
-            key = saved.key,
-            userId = saved.userId,
-            activationDate = saved.activationDate,
-            expirationDate = saved.expirationDate,
-            session_token = session_token
-        } or {
-            isValid = true,
-            key = "Unknown",
-            userId = userId,
-            activationDate = os.time(),
-            expirationDate = os.time() + 86400 * 7,
-            session_token = session_token
-        }
+        local keyData = nil
+        
+        if saved then
+            keyData = {
+                isValid = true,
+                key = saved.key,
+                userId = saved.userId,
+                activationDate = saved.activationDate,
+                expirationDate = saved.expirationDate,
+                session_token = session_token
+            }
+        else
+            local currentTime = os.time()
+            keyData = {
+                isValid = true,
+                key = "Unknown",
+                userId = userId,
+                activationDate = currentTime,
+                expirationDate = currentTime + (86400 * 7),
+                session_token = session_token
+            }
+        end
+        
         local func, err = loadstring(decrypted)
         if not func then
             print("❌ Ошибка компиляции: " .. tostring(err))
             return
         end
+        
         print("✅ Модуль загружен!")
         pcall(func, keyData)
+        
+        if _G.AuraLoadingHide then
+            task.wait(0.5)
+            _G.AuraLoadingHide()
+        end
     end)
+end
+
+-- ============================================
+-- 6. АКТИВАЦИЯ КЛЮЧА
+-- ============================================
+local function activateKey(key)
+    print("📡 Активация ключа...")
+    
+    local data = {
+        key = key,
+        userId = player.UserId,
+        userName = player.Name,
+        executor = getexecutorname and getexecutorname() or "Unknown",
+        version = CONFIG.VERSION,
+        gameId = game.GameId or 0,
+        placeId = game.PlaceId or 0
+    }
+    
+    local response, status = httpPost(CONFIG.API_URL .. "/activate", data)
+    
+    if not response then
+        return false, "❌ Ошибка подключения к серверу"
+    end
+    
+    if response.status == "success" then
+        print("✅ Ключ активирован!")
+        if response.session_token then
+            saveData({
+                key = key,
+                userId = player.UserId,
+                expires_at = response.expires_at,
+                session_token = response.session_token,
+                activationDate = os.time(),
+                expirationDate = parseDate(response.expires_at) or (os.time() + 86400 * 7)
+            })
+        end
+        return true, response
+    elseif response.status == "error" and response.message == "Key already activated" then
+        print("✅ Ключ уже активирован, создаем сессию...")
+        local sessionResponse, sessionStatus = httpPost(CONFIG.API_URL .. "/session", {
+            userId = player.UserId,
+            executor = getexecutorname and getexecutorname() or "Unknown",
+            version = CONFIG.VERSION
+        })
+        
+        if sessionResponse and sessionResponse.status == "success" then
+            saveData({
+                key = key,
+                userId = player.UserId,
+                session_token = sessionResponse.session,
+                activationDate = os.time(),
+                expirationDate = os.time() + 86400 * 7
+            })
+            return true, { session_token = sessionResponse.session }
+        else
+            return false, "❌ Ошибка создания сессии"
+        end
+    else
+        return false, response.message or "❌ Неизвестная ошибка"
+    end
 end
 
 print("✅ [9] Функции загружены")
 
 -- ============================================
--- 10. GUI — showScriptSelector()
+-- 7. GUI — showScriptSelector()
 -- ============================================
 print("🔴 [10] Вызов showScriptSelector()...")
 
@@ -631,12 +719,10 @@ local function showScriptSelector()
     print("🔴 [31] Создаем карточки модулей...")
     local selectedModule = 1
     local buttons = {}
+    local buttonData = {}
     local yOffset = 5
     local cardHeight = 56
     local spacing = 6
-    
-    -- 🔥 ОТДЕЛЬНАЯ ТАБЛИЦА ДЛЯ ХРАНЕНИЯ ДАННЫХ КНОПОК
-    local buttonData = {}
     
     for i, moduleData in ipairs(MODULES) do
         print("🔴 [32] Создаем карточку " .. i .. ": " .. moduleData.name)
@@ -701,7 +787,7 @@ local function showScriptSelector()
         statusDot.Font = Enum.Font.GothamBold
         statusDot.Parent = button
         
-        -- 🔥 СОХРАНЯЕМ ДАННЫЕ В ОТДЕЛЬНУЮ ТАБЛИЦУ (НЕ В button.Data!)
+        -- СОХРАНЯЕМ ДАННЫЕ В ОТДЕЛЬНУЮ ТАБЛИЦУ
         buttonData[button] = {
             index = i,
             id = moduleData.id,
@@ -877,7 +963,6 @@ local function showScriptSelector()
             return
         end
         
-        -- 🔥 БЕРЕМ ДАННЫЕ ИЗ ОТДЕЛЬНОЙ ТАБЛИЦЫ
         local data = buttonData[btn]
         if not data then
             print("❌ [46] Данные модуля не найдены")
@@ -905,13 +990,12 @@ local function showScriptSelector()
             
             if not saved or not saved.session_token then
                 print("🔄 [49] Создаём новую сессию...")
-                local sessionUrl = CONFIG.API_URL .. "/session"
-                local sessionData = {
+                local sessionResponse, sessionStatus = httpPost(CONFIG.API_URL .. "/session", {
                     userId = player.UserId,
                     executor = getexecutorname and getexecutorname() or "Unknown",
                     version = CONFIG.VERSION
-                }
-                local sessionResponse, sessionStatus = httpRequest(sessionUrl, "POST", sessionData, 15)
+                })
+                
                 if sessionResponse and sessionResponse.status == "success" then
                     saved = {
                         userId = player.UserId,
@@ -937,111 +1021,23 @@ local function showScriptSelector()
     end)
     
     print("✅ [54] Обработчик кнопки создан")
-    print("🔴🔴🔴 [55] КНОПКА ГОТОВА! Нажми на фиолетовую кнопку 'ЗАПУСТИТЬ' внизу экрана! 🔴🔴🔴")
+    print("🔴🔴🔴 [55] КНОПКА ГОТОВА! 🔴🔴🔴")
 end
 
 -- ============================================
--- 11. ЗАПУСК
+-- 8. ЗАПУСК
 -- ============================================
-print("🔴 [56] Вызов showScriptSelector()...")
+print("📅 [56] " .. os.date("%Y-%m-%d %H:%M:%S"))
+print("👤 [57] User: " .. player.Name .. " (ID: " .. player.UserId .. ")")
+
+print("🔴 [58] Вызов showScriptSelector()...")
 local success, err = pcall(showScriptSelector)
 
 if success then
-    print("✅ [57] showScriptSelector() выполнен успешно!")
+    print("✅ [59] showScriptSelector() выполнен успешно!")
 else
-    print("❌❌❌ [58] ОШИБКА: " .. tostring(err))
+    print("❌❌❌ [60] ОШИБКА: " .. tostring(err))
 end
 
--- ============================================
--- ДИАГНОСТИКА ЗАГРУЗКИ
--- ============================================
-local function testLoadScript()
-    print("🔴 ТЕСТОВАЯ ЗАГРУЗКА СКРИПТА")
-    
-    local saved = loadData()
-    if not saved or not saved.session_token then
-        print("❌ Нет сессии")
-        return
-    end
-    
-    local url = string.format(
-        "%s/script?session=%s&user_id=%s&script_name=%s",
-        CONFIG.API_URL,
-        saved.session_token,
-        player.UserId,
-        "main"
-    )
-    
-    print("📡 URL: " .. url)
-    
-    local raw_response = nil
-    if syn and syn.request then
-        local success, response = pcall(function()
-            return syn.request({
-                Url = url,
-                Method = "GET",
-                Timeout = 15,
-                Headers = { ["User-Agent"] = "Mozilla/5.0" }
-            })
-        end)
-        if success and response then
-            print("📥 Статус: " .. response.StatusCode)
-            if response.StatusCode == 200 then
-                raw_response = response.Body
-                print("📦 Длина ответа: " .. #raw_response)
-                print("📦 Первые 200 символов: " .. raw_response:sub(1, 200))
-            else
-                print("❌ Ошибка HTTP: " .. response.StatusCode)
-            end
-        else
-            print("❌ Ошибка syn.request: " .. tostring(response))
-        end
-    end
-    
-    if not raw_response then
-        local success, response = pcall(function()
-            return game:GetService("HttpService"):RequestAsync({
-                Url = url,
-                Method = "GET",
-                Headers = { ["User-Agent"] = "Mozilla/5.0" }
-            })
-        end)
-        if success and response then
-            print("📥 Статус (HttpService): " .. response.StatusCode)
-            if response.StatusCode == 200 then
-                raw_response = response.Body
-                print("📦 Длина ответа: " .. #raw_response)
-                print("📦 Первые 200 символов: " .. raw_response:sub(1, 200))
-            else
-                print("❌ Ошибка HTTP: " .. response.StatusCode)
-            end
-        else
-            print("❌ Ошибка HttpService: " .. tostring(response))
-        end
-    end
-    
-    if raw_response then
-        local success, data = pcall(function()
-            return game:GetService("HttpService"):JSONDecode(raw_response)
-        end)
-        if success then
-            print("✅ JSON распарсен успешно!")
-            print("📊 status: " .. (data.status or "nil"))
-            if data.script then
-                print("📦 script: " .. data.script:sub(1, 50) .. "...")
-            else
-                print("❌ Нет поля 'script' в ответе!")
-            end
-        else
-            print("❌ Ошибка парсинга JSON: " .. tostring(data))
-        end
-    else
-        print("❌ Не удалось загрузить скрипт ни одним методом!")
-    end
-end
-
--- Запускаем тест
-task.wait(0.5)
-testLoadScript()
-
-print("✅ [59] Private Script System v10.9 запущен!")
+print("✅ [61] Private Script System v10.10 запущен!")
+print("🔴🔴🔴 [62] Нажми на фиолетовую кнопку 'ЗАПУСТИТЬ' внизу экрана! 🔴🔴🔴")
