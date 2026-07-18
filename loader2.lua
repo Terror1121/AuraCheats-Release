@@ -1,20 +1,109 @@
 -- ============================================
--- 🔒 AURA CHEATS - ЗАГРУЗЧИК v5.50
--- FIX: МИКРО-ЧАНКИ + task.wait() (БЕЗ ЛАГОВ!)
+-- 🔒 AURA CHEATS - PRIVATE SCRIPT SYSTEM v7.7
+-- С ЛОГАМИ (КАЖДЫЙ ШАГ)
 -- ============================================
 
-print("🔧 Загрузка AuraCheats v5.50")
+print("🔧 [1] Загрузка AuraCheats Private Script System v7.7")
 
+local player = game.Players.LocalPlayer
+if not player then
+    print("❌ [2] Нет игрока")
+    return
+end
+print("✅ [3] Игрок: " .. player.Name)
+
+-- ============================================
+-- 1. КОНФИГУРАЦИЯ
+-- ============================================
+print("🔧 [4] Загрузка конфигурации...")
 local CONFIG = {
     API_URL = "https://aura-cheats-bot.onrender.com/api/v6",
     SAVE_FILE = "AuraCheatsKeyData",
     ENCRYPT_KEY = "AuraCheats2024",
     VERSION = "2.2.25",
+    LAUNCHER_VERSION = "5.2.1",
 }
+print("✅ [5] Конфигурация загружена")
 
 -- ============================================
--- 2. УНИВЕРСАЛЬНАЯ ЗАПИСЬ ФАЙЛА
+-- 2. ДАННЫЕ МОДУЛЕЙ
 -- ============================================
+print("🔧 [6] Загрузка модулей...")
+local MODULES = {
+    {
+        id = "main",
+        name = "Main",
+        icon = "🎯",
+        shortDesc = "Универсальный модуль",
+        fullDesc = "Основной модуль AuraCheats с полным набором функций",
+        features = {"ESP", "Chams", "Aimbot", "Fly", "Speed", "Noclip", "Infinite Jump"},
+        status = "online",
+        needsAuth = true,
+        version = "5.2.1",
+    },
+    {
+        id = "testing",
+        name = "Testing",
+        icon = "🧪",
+        shortDesc = "Отладка и тестирование",
+        fullDesc = "Тестовый модуль для разработки и отладки новых функций",
+        features = {"Debug", "Test", "Sandbox", "Console", "Log Viewer"},
+        status = "online",
+        needsAuth = false,
+        version = "0.1.0",
+    },
+    {
+        id = "prison_life",
+        name = "Prison Life",
+        icon = "🔒",
+        shortDesc = "Автоматизация Prison Life",
+        fullDesc = "Полный набор функций для Prison Life: фарм, эскейп, телепорты",
+        features = {"AutoFarm", "ESP", "Teleport", "Escape", "AutoDig", "Guard Bypass"},
+        status = "online",
+        needsAuth = false,
+        version = "2.0.0",
+    },
+    {
+        id = "blox_fruits",
+        name = "Blox Fruits",
+        icon = "🍎",
+        shortDesc = "Фарм ресурсов и квестов",
+        fullDesc = "Автоматический фарм фруктов, квестов и телепорты по карте",
+        features = {"AutoFarm", "Teleport", "ESP", "AutoQuest", "Fruit Finder", "Boss Farm"},
+        status = "online",
+        needsAuth = false,
+        version = "3.1.0",
+    },
+    {
+        id = "bedwars",
+        name = "BedWars",
+        icon = "🛏️",
+        shortDesc = "PvP модуль для BedWars",
+        fullDesc = "Продвинутый аимбот и ESP для BedWars с автостройкой",
+        features = {"Aimbot", "ESP", "AutoBridge", "AntiFall", "AutoBuy", "Bed Defend"},
+        status = "wip",
+        needsAuth = false,
+        version = "1.8.0",
+    },
+    {
+        id = "arsenal",
+        name = "Arsenal",
+        icon = "🔫",
+        shortDesc = "Шутер модуль",
+        fullDesc = "Аимбот, триггербот и ESP для Arsenal с автоспавном",
+        features = {"Aimbot", "Triggerbot", "ESP", "AutoRespawn", "Silent Aim", "Aim Assist"},
+        status = "wip",
+        needsAuth = false,
+        version = "0.9.0",
+    },
+}
+print("✅ [7] Модулей загружено: " .. #MODULES)
+
+-- ============================================
+-- 3. УНИВЕРСАЛЬНЫЕ ФУНКЦИИ
+-- ============================================
+print("🔧 [8] Загрузка функций...")
+
 local function writeFileUniversal(path, data)
     if syn and syn.writefile then
         local success, result = pcall(function() return syn.writefile(path, data) end)
@@ -64,7 +153,7 @@ local function isFileUniversal(path)
 end
 
 -- ============================================
--- 3. РАБОТА С ДАННЫМИ
+-- 4. РАБОТА С ДАННЫМИ КЛЮЧА
 -- ============================================
 local function saveData(data)
     _G.AuraCheatsKeyData = data
@@ -113,194 +202,302 @@ local function parseDate(dateString)
 end
 
 -- ============================================
--- 4. АСИНХРОННЫЙ ЗАПРОС
+-- 5. HTTP ЗАПРОСЫ (УНИВЕРСАЛЬНЫЕ)
 -- ============================================
-local function asyncRequest(url, method, data, callback, timeout)
+local function httpRequest(url, method, data, timeout)
     timeout = timeout or 15
     local body = data and game:GetService("HttpService"):JSONEncode(data) or nil
     
+    if syn and syn.request then
+        local success, response = pcall(function()
+            return syn.request({
+                Url = url,
+                Method = method,
+                Headers = {
+                    ["Content-Type"] = "application/json",
+                    ["User-Agent"] = "Mozilla/5.0"
+                },
+                Body = body,
+                Timeout = timeout
+            })
+        end)
+        if success and response then
+            if response.StatusCode == 200 then
+                if type(response.Body) == "string" then
+                    return game:GetService("HttpService"):JSONDecode(response.Body), 200
+                end
+            else
+                return nil, response.StatusCode
+            end
+        end
+    end
+    
+    if http and http.request then
+        local success, response = pcall(function()
+            return http.request({
+                Url = url,
+                Method = method,
+                Headers = {
+                    ["Content-Type"] = "application/json",
+                    ["User-Agent"] = "Mozilla/5.0"
+                },
+                Body = body,
+                Timeout = timeout
+            })
+        end)
+        if success and response then
+            if response.StatusCode == 200 then
+                if type(response.Body) == "string" then
+                    return game:GetService("HttpService"):JSONDecode(response.Body), 200
+                end
+            else
+                return nil, response.StatusCode
+            end
+        end
+    end
+    
+    local success, response = pcall(function()
+        return game:GetService("HttpService"):RequestAsync({
+            Url = url,
+            Method = method,
+            Headers = {
+                ["Content-Type"] = "application/json"
+            },
+            Body = body
+        })
+    end)
+    if success and response then
+        if response.StatusCode == 200 then
+            if type(response.Body) == "string" then
+                return game:GetService("HttpService"):JSONDecode(response.Body), 200
+            end
+        else
+            return nil, response.StatusCode
+        end
+    end
+    
+    return nil, nil
+end
+
+-- ============================================
+-- 6. ПРОВЕРКА КЛЮЧА НА СЕРВЕРЕ
+-- ============================================
+local function checkKeyOnServer(key, userId)
+    print("📡 [9] Проверка ключа...")
+    
+    local response, status = httpRequest(CONFIG.API_URL .. "/check", "POST", { key = key, userId = userId }, 10)
+    
+    if not response then
+        print("⚠️ [10] Сервер недоступен, используем локальные данные")
+        return true, nil
+    end
+    
+    print("📥 [11] Статус: " .. (response.status or "unknown"))
+    
+    if response.status == "active" then
+        print("✅ [12] Ключ активен!")
+        return true, response
+    elseif response.status == "expired" then
+        print("❌ [13] Ключ истек!")
+        return false, "Срок действия ключа истек"
+    elseif response.status == "inactive" then
+        print("❌ [14] Ключ не активирован!")
+        return false, "Ключ не активирован"
+    else
+        return false, response.message or "Неизвестная ошибка"
+    end
+end
+
+-- ============================================
+-- 7. АКТИВАЦИЯ КЛЮЧА
+-- ============================================
+local function activateKey(key, callback)
+    print("📡 [15] Активация ключа...")
+    
+    local data = {
+        key = key,
+        userId = player.UserId,
+        userName = player.Name,
+        executor = getexecutorname and getexecutorname() or "Unknown",
+        version = CONFIG.VERSION,
+        gameId = game.GameId or 0,
+        placeId = game.PlaceId or 0
+    }
+    
+    local response, status = httpRequest(CONFIG.API_URL .. "/activate", "POST", data, 15)
+    
+    if not response then
+        callback(false, "❌ [16] Ошибка подключения к серверу")
+        return
+    end
+    
+    if response.status == "success" then
+        print("✅ [17] Ключ активирован!")
+        if response.session_token then
+            saveData({
+                key = key,
+                userId = player.UserId,
+                expires_at = response.expires_at,
+                session_token = response.session_token,
+                activationDate = os.time(),
+                expirationDate = parseDate(response.expires_at) or (os.time() + 86400 * 7)
+            })
+        end
+        callback(true, response)
+    elseif response.status == "error" and response.message == "Key already activated" then
+        print("✅ [18] Ключ уже активирован, создаем сессию...")
+        local sessionResponse, sessionStatus = httpRequest(CONFIG.API_URL .. "/session", "POST", {
+            userId = player.UserId,
+            executor = getexecutorname and getexecutorname() or "Unknown",
+            version = CONFIG.VERSION
+        }, 15)
+        
+        if sessionResponse and sessionResponse.status == "success" then
+            saveData({
+                key = key,
+                userId = player.UserId,
+                session_token = sessionResponse.session,
+                activationDate = os.time(),
+                expirationDate = os.time() + 86400 * 7
+            })
+            callback(true, { session_token = sessionResponse.session })
+        else
+            callback(false, "❌ [19] Ошибка создания сессии")
+        end
+    else
+        callback(false, response.message or "❌ [20] Неизвестная ошибка")
+    end
+end
+
+-- ============================================
+-- 8. ЗАГРУЗКА СКРИПТА С СЕРВЕРА
+-- ============================================
+local function loadScriptFromServer(session_token, userId, moduleId)
+    local url = string.format(
+        "%s/script?session=%s&user_id=%s&script_name=%s",
+        CONFIG.API_URL,
+        session_token,
+        userId,
+        moduleId
+    )
+    
+    print("📥 [21] Загрузка модуля: " .. moduleId)
+    print("   📡 " .. url)
+    
     task.spawn(function()
-        local result = nil
+        local raw_response = nil
         local statusCode = nil
         
         if syn and syn.request then
             local success, response = pcall(function()
                 return syn.request({
                     Url = url,
-                    Method = method,
+                    Method = "GET",
+                    Timeout = 30,
                     Headers = {
-                        ["Content-Type"] = "application/json",
                         ["User-Agent"] = "Mozilla/5.0"
-                    },
-                    Body = body,
-                    Timeout = timeout
+                    }
                 })
             end)
             if success and response then
                 statusCode = response.StatusCode
                 if response.StatusCode == 200 then
-                    if type(response.Body) == "string" then
-                        result = game:GetService("HttpService"):JSONDecode(response.Body)
-                    end
+                    raw_response = response.Body
                 end
             end
         end
         
-        if not result and http and http.request then
+        if not raw_response and http and http.request then
             local success, response = pcall(function()
                 return http.request({
                     Url = url,
-                    Method = method,
+                    Method = "GET",
+                    Timeout = 30,
                     Headers = {
-                        ["Content-Type"] = "application/json",
                         ["User-Agent"] = "Mozilla/5.0"
-                    },
-                    Body = body,
-                    Timeout = timeout
+                    }
                 })
             end)
             if success and response then
                 statusCode = response.StatusCode
                 if response.StatusCode == 200 then
-                    if type(response.Body) == "string" then
-                        result = game:GetService("HttpService"):JSONDecode(response.Body)
-                    end
+                    raw_response = response.Body
                 end
             end
         end
         
-        if not result then
+        if not raw_response then
             local success, response = pcall(function()
                 return game:GetService("HttpService"):RequestAsync({
                     Url = url,
-                    Method = method,
+                    Method = "GET",
                     Headers = {
-                        ["Content-Type"] = "application/json"
-                    },
-                    Body = body
+                        ["User-Agent"] = "Mozilla/5.0"
+                    }
                 })
             end)
             if success and response then
                 statusCode = response.StatusCode
                 if response.StatusCode == 200 then
-                    if type(response.Body) == "string" then
-                        result = game:GetService("HttpService"):JSONDecode(response.Body)
-                    end
+                    raw_response = response.Body
                 end
             end
         end
         
-        if callback then
-            callback(result, statusCode)
-        end
-    end)
-end
-
--- ============================================
--- 5. АСИНХРОННАЯ РАСШИФРОВКА XOR (БЕЗ ЛАГОВ!)
--- ============================================
-local function decryptXORAsync(encrypted_bytes, userId, callback)
-    task.spawn(function()
-        local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
-        local key_len = #key
-        local total = #encrypted_bytes
-        local chunk_size = 1024  -- 1 KB за раз (микро-фризов НЕТ!)
-        
-        print("📦 Расшифровываем XOR... (" .. total .. " байт)")
-        
-        local result_parts = {}
-        local part_index = 1
-        local last_progress = 0
-        
-        for offset = 1, total, chunk_size do
-            local chunk_end = math.min(offset + chunk_size - 1, total)
-            local chunk_len = chunk_end - offset + 1
-            
-            local chunk = string.sub(encrypted_bytes, offset, chunk_end)
-            local decrypted_chunk = ""
-            
-            for i = 1, chunk_len do
-                local global_idx = offset + i - 1
-                local key_idx = ((global_idx - 1) % key_len) + 1
-                local byte = string.byte(chunk, i)
-                local key_byte = string.byte(key, key_idx)
-                decrypted_chunk = decrypted_chunk .. string.char(bit32.bxor(byte, key_byte))
-            end
-            
-            result_parts[part_index] = decrypted_chunk
-            part_index = part_index + 1
-            
-            local progress = math.floor((offset + chunk_len) / total * 100)
-            if progress >= last_progress + 10 then
-                last_progress = progress
-                print("   ⏳ Расшифровка: " .. progress .. "%")
-            end
-            
-            -- ⚡ РАЗМАЗЫВАЕМ НАГРУЗКУ (МИКРО-ФРИЗОВ НЕТ!)
-            task.wait()
-        end
-        
-        local result = table.concat(result_parts)
-        print("✅ Расшифровка завершена! (" .. #result .. " байт)")
-        callback(result)
-    end)
-end
-
--- ============================================
--- 6. ЗАГРУЗКА СКРИПТА С СЕРВЕРА
--- ============================================
-local function loadScriptFromServerAsync(session_token, userId)
-    local url = string.format(
-        "%s/script?session=%s&user_id=%s",
-        CONFIG.API_URL,
-        session_token,
-        userId
-    )
-    
-    print("📥 Загрузка скрипта с сервера...")
-    
-    asyncRequest(url, "GET", nil, function(response, statusCode)
         if statusCode == 401 then
-            print("⚠️ Сессия невалидна, создаем новую...")
-            
-            local sessionData = {
+            print("⚠️ [22] Сессия невалидна, создаем новую...")
+            local sessionResponse, sessionStatus = httpRequest(CONFIG.API_URL .. "/session", "POST", {
                 userId = userId,
                 executor = getexecutorname and getexecutorname() or "Unknown",
                 version = CONFIG.VERSION
-            }
-            local sessionUrl = CONFIG.API_URL .. "/session"
-            
-            asyncRequest(sessionUrl, "POST", sessionData, function(sessionResponse)
-                if sessionResponse and sessionResponse.status == "success" then
-                    local newSession = sessionResponse.session
-                    print("✅ Новая сессия создана: " .. newSession)
-                    
-                    local saved = loadData()
-                    if saved then
-                        saved.session_token = newSession
-                        saveData(saved)
-                    end
-                    
-                    loadScriptFromServerAsync(newSession, userId)
-                else
-                    print("❌ Ошибка создания сессии")
-                end
-            end)
+            }, 15)
+            if sessionResponse and sessionResponse.status == "success" then
+                local saved = loadData()
+                saveData({
+                    key = saved and saved.key or "Unknown",
+                    userId = userId,
+                    session_token = sessionResponse.session,
+                    activationDate = os.time(),
+                    expirationDate = os.time() + 86400 * 7
+                })
+                loadScriptFromServer(sessionResponse.session, userId, moduleId)
+            end
             return
         end
         
-        if not response or response.status ~= "success" then
-            print("❌ Ошибка загрузки скрипта")
+        if statusCode == 403 then
+            print("❌ [23] Требуется ключ для этого модуля!")
             return
         end
         
-        local encrypted_b64 = response.script
+        if not raw_response then
+            print("❌ [24] Ошибка загрузки модуля")
+            return
+        end
+        
+        local response_data = nil
+        local success, result = pcall(function()
+            return game:GetService("HttpService"):JSONDecode(raw_response)
+        end)
+        if success and result then
+            response_data = result
+        else
+            print("❌ [25] Ошибка парсинга JSON")
+            return
+        end
+        
+        if response_data.status ~= "success" then
+            print("❌ [26] Сервер вернул ошибку: " .. (response_data.message or "unknown"))
+            return
+        end
+        
+        local encrypted_b64 = response_data.script
         if not encrypted_b64 then
-            print("❌ Нет поля 'script'")
+            print("❌ [27] Нет поля 'script'")
             return
         end
         
-        print("📦 Декодируем Base64...")
+        print("📦 [28] Декодируем Base64...")
         
         local encrypted_bytes = nil
         if crypt and crypt.base64decode then
@@ -317,330 +514,307 @@ local function loadScriptFromServerAsync(session_token, userId)
         end
         
         if not encrypted_bytes then
-            print("❌ Ошибка декодирования Base64")
+            print("❌ [29] Ошибка декодирования Base64")
             return
         end
         
-        decryptXORAsync(encrypted_bytes, userId, function(decrypted)
-            local saved = loadData()
-            local keyData = nil
-            
-            if saved then
-                keyData = {
-                    isValid = true,
-                    key = saved.key,
-                    userId = saved.userId,
-                    activationDate = saved.activationDate,
-                    expirationDate = saved.expirationDate,
-                    session_token = session_token
-                }
-            else
-                local currentTime = os.time()
-                keyData = {
-                    isValid = true,
-                    key = "Unknown",
-                    userId = userId,
-                    activationDate = currentTime,
-                    expirationDate = currentTime + (86400 * 7),
-                    session_token = session_token
-                }
-            end
-            
-            local func, err = loadstring(decrypted)
-            if not func then
-                print("❌ Ошибка компиляции: " .. tostring(err))
-                return
-            end
-            
-            print("✅ Скрипт загружен!")
-            pcall(func, keyData)
-        end)
-    end)
-end
-
--- ============================================
--- 7. АСИНХРОННАЯ ПРОВЕРКА КЛЮЧА
--- ============================================
-local function checkKeyAsync(key, userId)
-    print("📡 Проверка ключа...")
-    
-    local url = CONFIG.API_URL .. "/check"
-    local data = { key = key, userId = userId }
-    
-    asyncRequest(url, "POST", data, function(response, statusCode)
-        if not response then
-            print("⚠️ Сервер недоступен, используем локальные данные")
-            local saved = loadData()
-            if saved and saved.session_token then
-                loadScriptFromServerAsync(saved.session_token, userId)
-            else
-                showGUI("❌ Ошибка подключения к серверу")
-            end
-            return
+        print("📦 [30] Расшифровываем XOR... (" .. #encrypted_bytes .. " байт)")
+        local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
+        local key_len = #key
+        local total = #encrypted_bytes
+        local chunk_size = 1024
+        
+        local key_bytes = {}
+        for i = 1, key_len do
+            key_bytes[i] = string.byte(key, i)
         end
         
-        print("📥 Статус: " .. (response.status or "unknown"))
+        local result_parts = {}
+        local part_index = 1
         
-        if response.status == "active" then
-            print("✅ Ключ активен!")
-            local saved = loadData()
-            if saved and saved.session_token then
-                loadScriptFromServerAsync(saved.session_token, userId)
-            else
-                print("⚠️ Нет session_token, загружаем main_clean.lua с GitHub...")
-                local url = "https://raw.githubusercontent.com/Terror1121/AuraCheats-Release/main/main_clean.lua"
-                local success, script = pcall(function()
-                    return game:HttpGet(url)
-                end)
-                if success and script and #script > 100 then
-                    local func, err = loadstring(script)
-                    if func then
-                        pcall(func, { isValid = true, key = key, userId = userId })
-                    end
-                end
+        for offset = 1, total, chunk_size do
+            local chunk_end = math.min(offset + chunk_size - 1, total)
+            local chunk_len = chunk_end - offset + 1
+            
+            local chunk = string.sub(encrypted_bytes, offset, chunk_end)
+            local chunk_bytes = { string.byte(chunk, 1, chunk_len) }
+            
+            local decrypted_chunk = {}
+            for i = 1, chunk_len do
+                local global_idx = offset + i - 1
+                local key_idx = ((global_idx - 1) % key_len) + 1
+                decrypted_chunk[i] = string.char(bit32.bxor(chunk_bytes[i], key_bytes[key_idx]))
             end
-        elseif response.status == "expired" then
-            print("❌ Ключ истек!")
-            showGUI("❌ Срок действия ключа истек")
-        elseif response.status == "inactive" then
-            print("❌ Ключ не активирован!")
-            showGUI("❌ Ключ не активирован")
+            
+            result_parts[part_index] = table.concat(decrypted_chunk)
+            part_index = part_index + 1
+        end
+        
+        local decrypted = table.concat(result_parts)
+        print("✅ [31] Расшифровка завершена! (" .. #decrypted .. " байт)")
+        
+        local saved = loadData()
+        local keyData = nil
+        
+        if saved then
+            keyData = {
+                isValid = true,
+                key = saved.key,
+                userId = saved.userId,
+                activationDate = saved.activationDate,
+                expirationDate = saved.expirationDate,
+                session_token = session_token
+            }
         else
-            print("❌ Ошибка: " .. (response.message or "unknown"))
-            showGUI("❌ Ошибка проверки ключа")
+            local currentTime = os.time()
+            keyData = {
+                isValid = true,
+                key = "Unknown",
+                userId = userId,
+                activationDate = currentTime,
+                expirationDate = currentTime + (86400 * 7),
+                session_token = session_token
+            }
+        end
+        
+        local func, err = loadstring(decrypted)
+        if not func then
+            print("❌ [32] Ошибка компиляции: " .. tostring(err))
+            return
+        end
+        
+        print("✅ [33] Модуль загружен!")
+        pcall(func, keyData)
+        
+        if _G.AuraLoadingHide then
+            task.wait(0.5)
+            _G.AuraLoadingHide()
         end
     end)
 end
 
 -- ============================================
--- 8. GUI ВВОДА КЛЮЧА
+-- 9. GUI — ПРОСТОЙ ЛАУНЧЕР
 -- ============================================
-local function showGUI(errorMessage)
-    local player = game.Players.LocalPlayer
-    if not player then return end
+print("🔧 [34] Создание GUI...")
+
+local function showScriptSelector()
+    print("🔴 [35] showScriptSelector() вызвана")
     
-    local oldGui = player.PlayerGui:FindFirstChild("AuraKeySystem")
-    if oldGui then oldGui:Destroy() end
+    local oldGui = player.PlayerGui:FindFirstChild("AuraLauncher")
+    if oldGui then 
+        oldGui:Destroy()
+        print("🔴 [36] Старый GUI удален")
+    end
     
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "AuraKeySystem"
-    gui.Parent = player.PlayerGui
-    gui.ResetOnSpawn = false
-    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    gui.DisplayOrder = 999
+    print("🔴 [37] Создаем ScreenGui...")
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "AuraLauncher"
+    screenGui.Parent = player.PlayerGui
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenGui.DisplayOrder = 999
+    print("✅ [38] ScreenGui создан")
     
+    print("🔴 [39] Создаем фон...")
     local bg = Instance.new("Frame")
     bg.Size = UDim2.new(1, 0, 1, 0)
     bg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    bg.BackgroundTransparency = 0.5
-    bg.Parent = gui
+    bg.BackgroundTransparency = 0.75
+    bg.Parent = screenGui
+    print("✅ [40] Фон создан")
     
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 400, 0, 320)
-    frame.Position = UDim2.new(0.5, -200, 0.5, -160)
-    frame.BackgroundColor3 = Color3.fromRGB(25, 25, 40)
-    frame.BorderSizePixel = 0
-    frame.Parent = gui
+    print("🔴 [41] Создаем контейнер...")
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(0, 400, 0, 300)
+    container.Position = UDim2.new(0.5, -200, 0.5, -150)
+    container.BackgroundColor3 = Color3.fromRGB(15, 15, 28)
+    container.BorderSizePixel = 0
+    container.Parent = screenGui
+    container.ClipsDescendants = true
     
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 12)
-    corner.Parent = frame
+    corner.Parent = container
+    print("✅ [42] Контейнер создан")
     
+    print("🔴 [43] Создаем заголовок...")
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 50)
+    title.Size = UDim2.new(1, 0, 0, 40)
     title.Position = UDim2.new(0, 0, 0, 10)
     title.BackgroundTransparency = 1
-    title.Text = "🔒 AURA CHEATS"
+    title.Text = "⚡ AURA CHEATS"
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.TextSize = 24
     title.Font = Enum.Font.GothamBold
-    title.Parent = frame
+    title.Parent = container
+    print("✅ [44] Заголовок создан")
     
-    local userLabel = Instance.new("TextLabel")
-    userLabel.Size = UDim2.new(1, -40, 0, 25)
-    userLabel.Position = UDim2.new(0, 20, 0, 65)
-    userLabel.BackgroundTransparency = 1
-    userLabel.Text = "👤 " .. player.Name .. " (ID: " .. player.UserId .. ")"
-    userLabel.TextColor3 = Color3.fromRGB(150, 150, 200)
-    userLabel.TextSize = 12
-    userLabel.Font = Enum.Font.Gotham
-    userLabel.Parent = frame
+    print("🔴 [45] Создаем кнопки модулей...")
+    local buttons = {}
+    local selectedModule = 1
+    local yOffset = 60
     
-    local input = Instance.new("TextBox")
-    input.Size = UDim2.new(1, -40, 0, 45)
-    input.Position = UDim2.new(0, 20, 0, 100)
-    input.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
-    input.BorderSizePixel = 2
-    input.BorderColor3 = Color3.fromRGB(80, 80, 200)
-    input.Text = ""
-    input.TextColor3 = Color3.fromRGB(255, 255, 255)
-    input.TextSize = 16
-    input.Font = Enum.Font.Gotham
-    input.PlaceholderText = "Введите ключ..."
-    input.Parent = frame
+    for i, moduleData in ipairs(MODULES) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1, -20, 0, 40)
+        btn.Position = UDim2.new(0, 10, 0, yOffset)
+        btn.BackgroundColor3 = Color3.fromRGB(30, 30, 55)
+        btn.BorderSizePixel = 0
+        btn.Text = moduleData.icon .. " " .. moduleData.name
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.TextSize = 14
+        btn.Font = Enum.Font.Gotham
+        btn.Parent = container
+        
+        local btnCorner2 = Instance.new("UICorner")
+        btnCorner2.CornerRadius = UDim.new(0, 6)
+        btnCorner2.Parent = btn
+        
+        btn.Data = {
+            id = moduleData.id,
+            name = moduleData.name,
+        }
+        
+        btn.MouseButton1Click:Connect(function()
+            print("🔴 [46] Выбран модуль: " .. moduleData.name)
+            for _, b in ipairs(buttons) do
+                b.BackgroundColor3 = Color3.fromRGB(30, 30, 55)
+            end
+            btn.BackgroundColor3 = Color3.fromRGB(60, 60, 100)
+            selectedModule = i
+        end)
+        
+        buttons[i] = btn
+        yOffset = yOffset + 48
+    end
     
-    local inputCorner = Instance.new("UICorner")
-    inputCorner.CornerRadius = UDim.new(0, 8)
-    inputCorner.Parent = input
+    -- Выбираем первый
+    if buttons[1] then
+        buttons[1].BackgroundColor3 = Color3.fromRGB(60, 60, 100)
+    end
+    print("✅ [47] Кнопки модулей созданы (" .. #buttons .. " шт.)")
     
-    local status = Instance.new("TextLabel")
-    status.Size = UDim2.new(1, -40, 0, 30)
-    status.Position = UDim2.new(0, 20, 0, 155)
-    status.BackgroundTransparency = 1
-    status.Text = errorMessage or "Готов к активации"
-    status.TextColor3 = errorMessage and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(180, 180, 200)
-    status.TextSize = 12
-    status.Font = Enum.Font.Gotham
-    status.Parent = frame
+    print("🔴 [48] Создаем кнопку ЗАПУСТИТЬ...")
+    local launchBtn = Instance.new("TextButton")
+    launchBtn.Size = UDim2.new(0, 200, 0, 40)
+    launchBtn.Position = UDim2.new(0.5, -100, 1, -50)
+    launchBtn.BackgroundColor3 = Color3.fromRGB(100, 80, 255)
+    launchBtn.BorderSizePixel = 0
+    launchBtn.Text = "▶ ЗАПУСТИТЬ"
+    launchBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    launchBtn.TextSize = 16
+    launchBtn.Font = Enum.Font.GothamBold
+    launchBtn.Parent = container
     
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 200, 0, 45)
-    btn.Position = UDim2.new(0.5, -100, 0, 205)
-    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 200)
-    btn.BorderSizePixel = 0
-    btn.Text = "АКТИВИРОВАТЬ"
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.TextSize = 16
-    btn.Font = Enum.Font.GothamBold
-    btn.Parent = frame
+    local btnCorner3 = Instance.new("UICorner")
+    btnCorner3.CornerRadius = UDim.new(0, 8)
+    btnCorner3.Parent = launchBtn
     
-    local btnCorner = Instance.new("UICorner")
-    btnCorner.CornerRadius = UDim.new(0, 8)
-    btnCorner.Parent = btn
+    local launchState = Instance.new("TextLabel")
+    launchState.Size = UDim2.new(0, 250, 0, 18)
+    launchState.Position = UDim2.new(0.5, -125, 0, -20)
+    launchState.BackgroundTransparency = 1
+    launchState.Text = ""
+    launchState.TextColor3 = Color3.fromRGB(180, 180, 200)
+    launchState.TextSize = 11
+    launchState.Font = Enum.Font.Gotham
+    launchState.TextXAlignment = Enum.TextXAlignment.Center
+    launchState.Visible = false
+    launchState.Parent = launchBtn
     
-    local support = Instance.new("TextLabel")
-    support.Size = UDim2.new(1, -40, 0, 20)
-    support.Position = UDim2.new(0, 20, 0, 270)
-    support.BackgroundTransparency = 1
-    support.Text = "💬 discord.gg/XPwdHN4jHf"
-    support.TextColor3 = Color3.fromRGB(150, 150, 180)
-    support.TextSize = 11
-    support.Font = Enum.Font.Gotham
-    support.Parent = frame
+    print("✅ [49] Кнопка ЗАПУСТИТЬ создана")
     
-    local attempts = 0
+    -- ============================================
+    -- ЛОГИКА ЗАПУСКА
+    -- ============================================
+    print("🔴 [50] Создаем обработчик кнопки...")
     
-    local function doActivate()
-        local key = input.Text:gsub("%s+", "")
-        if key == "" then
-            status.Text = "❌ Введите ключ!"
-            status.TextColor3 = Color3.fromRGB(255, 80, 80)
+    launchBtn.MouseButton1Click:Connect(function()
+        print("🔴🔴🔴 [51] КНОПКА ЗАПУСТИТЬ НАЖАТА! 🔴🔴🔴")
+        
+        local btn = buttons[selectedModule]
+        if not btn then
+            print("❌ [52] Кнопка не найдена")
             return
         end
         
-        status.Text = "⏳ Проверка..."
-        status.TextColor3 = Color3.fromRGB(255, 255, 100)
-        btn.Active = false
-        btn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-        btn.Text = "ПРОВЕРКА..."
+        local data = btn.Data
+        if not data then
+            print("❌ [53] Данные модуля не найдены")
+            return
+        end
+        
+        print("🚀 [54] Запуск модуля: " .. data.name .. " (ID: " .. data.id .. ")")
+        
+        launchBtn.Visible = false
+        launchState.Visible = true
+        launchState.Text = "⏳ Запуск..."
+        launchState.TextColor3 = Color3.fromRGB(255, 255, 100)
         
         task.spawn(function()
-            local url = CONFIG.API_URL .. "/activate"
-            local data = {
-                key = key,
-                userId = player.UserId,
-                userName = player.Name,
-                executor = getexecutorname and getexecutorname() or "Unknown",
-                version = CONFIG.VERSION,
-                gameId = game.GameId or 0,
-                placeId = game.PlaceId or 0
-            }
+            task.wait(0.5)
+            screenGui:Destroy()
             
-            asyncRequest(url, "POST", data, function(response, statusCode)
-                if not response then
-                    status.Text = "❌ Ошибка подключения к серверу"
-                    status.TextColor3 = Color3.fromRGB(255, 80, 80)
-                    btn.Active = true
-                    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 200)
-                    btn.Text = "АКТИВИРОВАТЬ"
+            local saved = loadData()
+            print("📦 [55] Загружены данные: " .. (saved and "ЕСТЬ" or "НЕТ"))
+            if saved then
+                print("   🔑 Ключ: " .. (saved.key or "НЕТ"))
+                print("   🎫 Сессия: " .. (saved.session_token or "НЕТ"))
+            end
+            
+            if not saved or not saved.session_token then
+                print("🔄 [56] Создаём новую сессию...")
+                local sessionUrl = CONFIG.API_URL .. "/session"
+                local sessionData = {
+                    userId = player.UserId,
+                    executor = getexecutorname and getexecutorname() or "Unknown",
+                    version = CONFIG.VERSION
+                }
+                local sessionResponse, sessionStatus = httpRequest(sessionUrl, "POST", sessionData, 15)
+                
+                if sessionResponse and sessionResponse.status == "success" then
+                    saved = {
+                        userId = player.UserId,
+                        session_token = sessionResponse.session,
+                        activationDate = os.time(),
+                        expirationDate = os.time() + 86400 * 7
+                    }
+                    saveData(saved)
+                    print("✅ [57] Сессия создана: " .. saved.session_token)
+                else
+                    print("❌ [58] Ошибка создания сессии")
                     return
                 end
-                
-                if response.status == "success" then
-                    status.Text = "✅ Ключ активирован!"
-                    status.TextColor3 = Color3.fromRGB(100, 255, 100)
-                    
-                    if response.session_token then
-                        saveData({
-                            key = key,
-                            userId = player.UserId,
-                            expires_at = response.expires_at,
-                            session_token = response.session_token,
-                            activationDate = os.time(),
-                            expirationDate = parseDate(response.expires_at) or (os.time() + 86400 * 7)
-                        })
-                        task.wait(0.5)
-                        gui:Destroy()
-                        loadScriptFromServerAsync(response.session_token, player.UserId)
-                    end
-                elseif response.status == "error" and response.message == "Key already activated" then
-                    local sessionUrl = CONFIG.API_URL .. "/session"
-                    local sessionData = {
-                        userId = player.UserId,
-                        executor = getexecutorname and getexecutorname() or "Unknown",
-                        version = CONFIG.VERSION
-                    }
-                    asyncRequest(sessionUrl, "POST", sessionData, function(sessionResponse)
-                        if sessionResponse and sessionResponse.status == "success" then
-                            status.Text = "✅ Ключ активирован!"
-                            status.TextColor3 = Color3.fromRGB(100, 255, 100)
-                            saveData({
-                                key = key,
-                                userId = player.UserId,
-                                session_token = sessionResponse.session,
-                                activationDate = os.time(),
-                                expirationDate = os.time() + 86400 * 7
-                            })
-                            task.wait(0.5)
-                            gui:Destroy()
-                            loadScriptFromServerAsync(sessionResponse.session, player.UserId)
-                        end
-                    end)
-                else
-                    attempts = attempts + 1
-                    status.Text = "❌ " .. (response.message or "Ошибка активации")
-                    status.TextColor3 = Color3.fromRGB(255, 80, 80)
-                    btn.Active = true
-                    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 200)
-                    btn.Text = "АКТИВИРОВАТЬ"
-                    if attempts >= 3 then
-                        status.Text = "❌ Превышено количество попыток!"
-                        btn.Active = false
-                        btn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-                    end
-                end
-            end)
+            end
+            
+            if saved and saved.session_token then
+                print("📥 [59] Загрузка модуля: " .. data.id)
+                loadScriptFromServer(saved.session_token, player.UserId, data.id)
+            else
+                print("❌ [60] Нет сессии для загрузки")
+            end
         end)
-    end
-    
-    btn.MouseButton1Click:Connect(doActivate)
-    input.FocusLost:Connect(function(enter)
-        if enter then doActivate() end
     end)
+    
+    print("✅ [61] Обработчик кнопки создан")
+    print("🔴🔴🔴 [62] КНОПКА ГОТОВА! 🔴🔴🔴")
 end
 
 -- ============================================
--- 9. ЗАПУСК
+-- 10. ЗАПУСК
 -- ============================================
-print("📅 " .. os.date("%Y-%m-%d %H:%M:%S"))
+print("📅 [63] " .. os.date("%Y-%m-%d %H:%M:%S"))
+print("👤 [64] User: " .. player.Name .. " (ID: " .. player.UserId .. ")")
 
-local player = game.Players.LocalPlayer
-if not player then
-    print("❌ Нет игрока")
-    return
-end
+print("🔴 [65] Вызов showScriptSelector()...")
+local success, err = pcall(showScriptSelector)
 
-print("👤 User ID: " .. player.UserId)
-print("👤 User: " .. player.Name)
-
-local saved = loadData()
-
-if saved and saved.key and saved.userId == player.UserId then
-    print("🔑 Найден сохраненный ключ: " .. saved.key)
-    checkKeyAsync(saved.key, player.UserId)
+if success then
+    print("✅ [66] showScriptSelector() выполнен успешно!")
 else
-    print("🔑 Требуется активация")
-    showGUI()
+    print("❌❌❌ [67] ОШИБКА: " .. tostring(err))
 end
 
-print("✅ Загрузка запущена! Ожидайте...")
+print("✅ [68] Private Script System v7.7 запущен!")
+print("🔴🔴🔴 [69] Нажми на кнопку '▶ ЗАПУСТИТЬ' внизу экрана! 🔴🔴🔴")
