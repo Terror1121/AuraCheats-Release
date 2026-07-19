@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - PRIVATE SCRIPT SYSTEM v12.4
--- FIX: ПОЛНОСТЬЮ РАБОЧАЯ ПАНЕЛЬ
+-- 🔒 AURA CHEATS - PRIVATE SCRIPT SYSTEM v12.5
+-- FIX: ПОЛОСКИ ПРОПАДАЮТ
 -- ============================================
 
-print("🔧 [1] Загрузка AuraCheats v12.4")
+print("🔧 [1] Загрузка AuraCheats v12.5")
 
 local player = game.Players.LocalPlayer
 if not player then
@@ -69,7 +69,7 @@ local MODULES = {
         icon = "🍎",
         shortDesc = "Фарм ресурсов и квестов",
         fullDesc = "Автоматический фарм фруктов, квестов и телепорты по карте",
-        features = {"AutoFarm", "Teleport", "ESP", "AutoQuest", "Fruit Finder", "Boss Farm"},
+        features = {"AutoFarm", "ESP", "Teleport", "AutoQuest", "Fruit Finder", "Boss Farm"},
         status = "online",
         needsAuth = false,
         version = "3.1.0",
@@ -734,6 +734,7 @@ end
 -- 11. ЛАУНЧЕР С ВЫБОРОМ СКРИПТА
 -- ============================================
 local selectedModuleId = "main"
+local selectedModule = 1
 
 print("🔴 [10] Создание лаунчера...")
 
@@ -972,7 +973,6 @@ local function showLauncher()
     print("✅ [30] Footer создан")
     
     print("🔴 [31] Создаем карточки модулей...")
-    local selectedModule = 1
     local buttons = {}
     local buttonData = {}
     local yOffset = 5
@@ -1110,10 +1110,12 @@ local function showLauncher()
             end
         end)
         
+        -- ✅ ИСПРАВЛЕННЫЙ КЛИК
         button.MouseButton1Click:Connect(function()
+            -- ✅ Если кликнули на уже выбранный модуль — ничего не делаем
             if selectedModule == i then return end
             
-            -- Убираем полоску у старого
+            -- ✅ Убираем полоску у СТАРОГО модуля
             local oldBtn = buttons[selectedModule]
             if oldBtn then
                 oldBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 55)
@@ -1121,12 +1123,12 @@ local function showLauncher()
                 if oldLine then oldLine.BackgroundTransparency = 1 end
             end
             
-            -- Ставим полоску у нового
+            -- ✅ Ставим полоску у НОВОГО модуля
             selectedModule = i
             button.BackgroundColor3 = Color3.fromRGB(40, 40, 70)
             line.BackgroundTransparency = 0
             
-            -- Обновляем панель
+            -- ✅ Обновляем панель
             updateInfoPanel(buttonData[button])
             selectedModuleId = moduleData.id
             print("🔴 Выбран модуль: " .. moduleData.id)
@@ -1268,5 +1270,5 @@ else
     print("❌❌❌ [52] ОШИБКА: " .. tostring(err))
 end
 
-print("✅ [53] Private Script System v12.4 запущен!")
+print("✅ [53] Private Script System v12.5 запущен!")
 print("🔴🔴🔴 [54] Выберите скрипт и нажмите 'ЗАПУСТИТЬ' 🔴🔴🔴")
