@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - PRIVATE SCRIPT SYSTEM v10.12
--- FIX: ВЫВОД ПОЛНОГО ОТВЕТА СЕРВЕРА
+-- 🔒 AURA CHEATS - PRIVATE SCRIPT SYSTEM v11.0
+-- FIX: РАБОТАЕТ НА ВСЕХ ИНЖЕКТОРАХ (ТОЛЬКО GET)
 -- ============================================
 
-print("🔧 [1] Загрузка AuraCheats v10.12")
+print("🔧 [1] Загрузка AuraCheats v11.0")
 
 local player = game.Players.LocalPlayer
 if not player then
@@ -199,21 +199,22 @@ local function parseDate(dateString)
 end
 
 -- ============================================
--- 4. HTTP ЗАПРОСЫ
+-- 4. HTTP GET (РАБОТАЕТ НА ВСЕХ!)
 -- ============================================
 
 local function httpGet(url)
-    print("📡 HTTP GET: " .. url)
+    print("📡 GET: " .. url)
     
     local success, result = pcall(function()
         return game:HttpGet(url)
     end)
     
     if success and result then
-        print("✅ game:HttpGet() успешно")
+        print("✅ GET успешно")
         return result
     end
     
+    -- Если game:HttpGet не сработал (редко)
     if syn and syn.request then
         local success2, response = pcall(function()
             return syn.request({
@@ -224,97 +225,44 @@ local function httpGet(url)
             })
         end)
         if success2 and response and response.StatusCode == 200 then
-            print("✅ syn.request успешно")
+            print("✅ GET через syn.request")
             return response.Body
         end
     end
     
-    if http and http.request then
-        local success2, response = pcall(function()
-            return http.request({
-                Url = url,
-                Method = "GET",
-                Timeout = 30,
-                Headers = { ["User-Agent"] = "Mozilla/5.0" }
-            })
-        end)
-        if success2 and response and response.StatusCode == 200 then
-            print("✅ http.request успешно")
-            return response.Body
-        end
-    end
-    
-    print("❌ Все методы HTTP загрузки не удались!")
+    print("❌ Все методы GET не удались!")
     return nil
 end
 
-local function httpPost(url, data)
-    local body = game:GetService("HttpService"):JSONEncode(data)
-    
-    if syn and syn.request then
-        local success, response = pcall(function()
-            return syn.request({
-                Url = url,
-                Method = "POST",
-                Headers = {
-                    ["Content-Type"] = "application/json",
-                    ["User-Agent"] = "Mozilla/5.0"
-                },
-                Body = body,
-                Timeout = 15
-            })
-        end)
-        if success and response and response.StatusCode == 200 then
-            if type(response.Body) == "string" then
-                return game:GetService("HttpService"):JSONDecode(response.Body), 200
-            end
-        end
-    end
-    
-    if http and http.request then
-        local success, response = pcall(function()
-            return http.request({
-                Url = url,
-                Method = "POST",
-                Headers = {
-                    ["Content-Type"] = "application/json",
-                    ["User-Agent"] = "Mozilla/5.0"
-                },
-                Body = body,
-                Timeout = 15
-            })
-        end)
-        if success and response and response.StatusCode == 200 then
-            if type(response.Body) == "string" then
-                return game:GetService("HttpService"):JSONDecode(response.Body), 200
-            end
-        end
-    end
-    
-    print("❌ POST запрос не удался")
-    return nil, nil
-end
-
 -- ============================================
--- 5. АКТИВАЦИЯ КЛЮЧА
+-- 5. АКТИВАЦИЯ КЛЮЧА (ЧЕРЕЗ GET)
 -- ============================================
 local function activateKey(key)
     print("📡 Активация ключа...")
     
-    local data = {
-        key = key,
-        userId = player.UserId,
-        userName = player.Name,
-        executor = getexecutorname and getexecutorname() or "Unknown",
-        version = CONFIG.VERSION,
-        gameId = game.GameId or 0,
-        placeId = game.PlaceId or 0
-    }
+    local userId = player.UserId
+    local userName = player.Name
+    local executor = getexecutorname and getexecutorname() or "Unknown"
     
-    local response, status = httpPost(CONFIG.API_URL .. "/activate", data)
+    -- Собираем URL с параметрами (GET)
+    local url = CONFIG.API_URL .. "/activate?key=" .. key .. 
+                "&userId=" .. userId ..
+                "&userName=" .. userName ..
+                "&executor=" .. executor ..
+                "&version=" .. CONFIG.VERSION ..
+                "&gameId=" .. (game.GameId or 0) ..
+                "&placeId=" .. (game.PlaceId or 0)
+    
+    local response_str = httpGet(url)
+    
+    if not response_str then
+        return false, "❌ Ошибка подключения к серверу"
+    end
+    
+    local response = game:GetService("HttpService"):JSONDecode(response_str)
     
     if not response then
-        return false, "❌ Ошибка подключения к серверу"
+        return false, "❌ Ошибка парсинга ответа"
     end
     
     if response.status == "success" then
@@ -322,7 +270,7 @@ local function activateKey(key)
         if response.session_token then
             saveData({
                 key = key,
-                userId = player.UserId,
+                userId = userId,
                 expires_at = response.expires_at,
                 session_token = response.session_token,
                 activationDate = os.time(),
@@ -332,21 +280,16 @@ local function activateKey(key)
         return true, response
     elseif response.status == "error" and response.message == "Key already activated" then
         print("✅ Ключ уже активирован, создаем сессию...")
-        local sessionResponse, sessionStatus = httpPost(CONFIG.API_URL .. "/session", {
-            userId = player.UserId,
-            executor = getexecutorname and getexecutorname() or "Unknown",
-            version = CONFIG.VERSION
-        })
-        
-        if sessionResponse and sessionResponse.status == "success" then
+        local sessionToken = createSession()
+        if sessionToken then
             saveData({
                 key = key,
-                userId = player.UserId,
-                session_token = sessionResponse.session,
+                userId = userId,
+                session_token = sessionToken,
                 activationDate = os.time(),
                 expirationDate = os.time() + 86400 * 7
             })
-            return true, { session_token = sessionResponse.session }
+            return true, { session_token = sessionToken }
         else
             return false, "❌ Ошибка создания сессии"
         end
@@ -356,7 +299,40 @@ local function activateKey(key)
 end
 
 -- ============================================
--- 6. ЗАГРУЗКА СКРИПТА С СЕРВЕРА (С ВЫВОДОМ ОТВЕТА)
+-- 6. СОЗДАНИЕ СЕССИИ (ЧЕРЕЗ GET)
+-- ============================================
+local function createSession()
+    print("📡 Создание сессии...")
+    
+    local userId = player.UserId
+    local executor = getexecutorname and getexecutorname() or "Unknown"
+    
+    local url = CONFIG.API_URL .. "/session?user_id=" .. userId ..
+                "&executor=" .. executor ..
+                "&version=" .. CONFIG.VERSION ..
+                "&gameId=" .. (game.GameId or 0) ..
+                "&placeId=" .. (game.PlaceId or 0)
+    
+    local response_str = httpGet(url)
+    
+    if not response_str then
+        print("❌ Ошибка создания сессии")
+        return nil
+    end
+    
+    local response = game:GetService("HttpService"):JSONDecode(response_str)
+    
+    if response and response.status == "success" and response.session then
+        print("✅ Сессия создана: " .. response.session)
+        return response.session
+    end
+    
+    print("❌ Ошибка создания сессии: " .. (response and response.message or "unknown"))
+    return nil
+end
+
+-- ============================================
+-- 7. ЗАГРУЗКА СКРИПТА
 -- ============================================
 local function loadScriptFromServer(session_token, userId, moduleId)
     if not moduleId or moduleId == "" then
@@ -377,12 +353,26 @@ local function loadScriptFromServer(session_token, userId, moduleId)
             return
         end
         
-        -- ============================================
-        -- 🔥 ВЫВОДИМ ПОЛНЫЙ ОТВЕТ СЕРВЕРА
-        -- ============================================
-        print("📦 ПОЛНЫЙ ОТВЕТ СЕРВЕРА:")
-        print(raw_response)
-        print("📦 КОНЕЦ ОТВЕТА")
+        -- Проверяем ошибку сессии
+        if raw_response:find('"detail":"Invalid session"') or raw_response:find('"status":"error"') then
+            print("❌ Сессия невалидна, создаём новую...")
+            local newSession = createSession()
+            if newSession then
+                local saved = loadData()
+                if saved then
+                    saved.session_token = newSession
+                    saveData(saved)
+                end
+                raw_response = httpGet(CONFIG.API_URL .. "/script?session=" .. newSession .. "&user_id=" .. userId .. "&script_name=" .. moduleId)
+                if not raw_response then
+                    print("❌ Ошибка загрузки после создания сессии")
+                    return
+                end
+            else
+                print("❌ Не удалось создать новую сессию")
+                return
+            end
+        end
         
         local response_data = nil
         local success, result = pcall(function()
@@ -480,7 +470,7 @@ end
 print("✅ [9] Функции загружены")
 
 -- ============================================
--- 7. GUI
+-- 8. GUI
 -- ============================================
 print("🔴 [10] Вызов showScriptSelector()...")
 
@@ -992,21 +982,16 @@ local function showScriptSelector()
             
             if not saved or not saved.session_token then
                 print("🔄 [49] Создаём новую сессию...")
-                local sessionResponse, sessionStatus = httpPost(CONFIG.API_URL .. "/session", {
-                    userId = player.UserId,
-                    executor = getexecutorname and getexecutorname() or "Unknown",
-                    version = CONFIG.VERSION
-                })
-                
-                if sessionResponse and sessionResponse.status == "success" then
+                local sessionToken = createSession()
+                if sessionToken then
                     saved = {
                         userId = player.UserId,
-                        session_token = sessionResponse.session,
+                        session_token = sessionToken,
                         activationDate = os.time(),
                         expirationDate = os.time() + 86400 * 7
                     }
                     saveData(saved)
-                    print("✅ [50] Сессия создана: " .. saved.session_token)
+                    print("✅ [50] Сессия создана: " .. sessionToken)
                 else
                     print("❌ [51] Ошибка создания сессии")
                     return
@@ -1027,7 +1012,7 @@ local function showScriptSelector()
 end
 
 -- ============================================
--- 8. ЗАПУСК
+-- 9. ЗАПУСК
 -- ============================================
 print("📅 [56] " .. os.date("%Y-%m-%d %H:%M:%S"))
 print("👤 [57] User: " .. player.Name .. " (ID: " .. player.UserId .. ")")
@@ -1041,5 +1026,5 @@ else
     print("❌❌❌ [60] ОШИБКА: " .. tostring(err))
 end
 
-print("✅ [61] Private Script System v10.12 запущен!")
+print("✅ [61] Private Script System v11.0 запущен!")
 print("🔴🔴🔴 [62] Нажми на фиолетовую кнопку 'ЗАПУСТИТЬ' внизу экрана! 🔴🔴🔴")
