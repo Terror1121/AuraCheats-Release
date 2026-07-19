@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - PRIVATE SCRIPT SYSTEM v12.2
--- FIX: selectedModuleId nil
+-- 🔒 AURA CHEATS - PRIVATE SCRIPT SYSTEM v12.3
+-- FIX: ПАНЕЛЬ ИНФОРМАЦИИ + ПОЛОСКА
 -- ============================================
 
-print("🔧 [1] Загрузка AuraCheats v12.2")
+print("🔧 [1] Загрузка AuraCheats v12.3")
 
 local player = game.Players.LocalPlayer
 if not player then
@@ -647,7 +647,6 @@ local function showGUI(errorMessage)
                     
                     task.wait(0.5)
                     gui:Destroy()
-                    -- После активации загружаем выбранный модуль
                     if not selectedModuleId or selectedModuleId == "" then
                         selectedModuleId = "main"
                         print("⚠️ selectedModuleId был nil, установлен 'main'")
@@ -744,6 +743,7 @@ end
 -- 11. ЛАУНЧЕР С ВЫБОРОМ СКРИПТА
 -- ============================================
 local selectedModuleId = "main"
+local selectedModule = 1
 
 print("🔴 [10] Создание лаунчера...")
 
@@ -877,14 +877,15 @@ local function showLauncher()
     accentLine.BackgroundColor3 = Color3.fromRGB(128, 87, 255)
     accentLine.BorderSizePixel = 0
     accentLine.Parent = infoPanel
-    print("✅ [26] Правая панель создана")
     
-    print("🔴 [27] Создаем информацию о модуле...")
+    -- ============================================
+    -- ИНФОРМАЦИЯ О МОДУЛЕ (ОБНОВЛЯЕТСЯ)
+    -- ============================================
     local infoIcon = Instance.new("TextLabel")
     infoIcon.Size = UDim2.new(0, 56, 0, 56)
     infoIcon.Position = UDim2.new(0, 24, 0, 24)
     infoIcon.BackgroundTransparency = 1
-    infoIcon.Text = "🎯"
+    infoIcon.Text = "📋"
     infoIcon.TextSize = 40
     infoIcon.Font = Enum.Font.GothamBold
     infoIcon.TextXAlignment = Enum.TextXAlignment.Left
@@ -894,7 +895,7 @@ local function showLauncher()
     infoTitle.Size = UDim2.new(0, 200, 0, 26)
     infoTitle.Position = UDim2.new(0, 92, 0, 22)
     infoTitle.BackgroundTransparency = 1
-    infoTitle.Text = "Main"
+    infoTitle.Text = "Выберите скрипт"
     infoTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
     infoTitle.TextSize = 20
     infoTitle.Font = Enum.Font.GothamBold
@@ -905,8 +906,8 @@ local function showLauncher()
     infoStatus.Size = UDim2.new(0, 100, 0, 18)
     infoStatus.Position = UDim2.new(0, 92, 0, 50)
     infoStatus.BackgroundTransparency = 1
-    infoStatus.Text = "● ONLINE"
-    infoStatus.TextColor3 = Color3.fromRGB(59, 255, 122)
+    infoStatus.Text = ""
+    infoStatus.TextColor3 = Color3.fromRGB(180, 180, 200)
     infoStatus.TextSize = 12
     infoStatus.Font = Enum.Font.GothamBold
     infoStatus.TextXAlignment = Enum.TextXAlignment.Left
@@ -916,7 +917,7 @@ local function showLauncher()
     infoVersion.Size = UDim2.new(0, 80, 0, 18)
     infoVersion.Position = UDim2.new(0, 180, 0, 50)
     infoVersion.BackgroundTransparency = 1
-    infoVersion.Text = "v5.2.1"
+    infoVersion.Text = ""
     infoVersion.TextColor3 = Color3.fromRGB(128, 87, 255)
     infoVersion.TextSize = 12
     infoVersion.Font = Enum.Font.GothamBold
@@ -927,7 +928,7 @@ local function showLauncher()
     infoDesc.Size = UDim2.new(1, -32, 0, 38)
     infoDesc.Position = UDim2.new(0, 16, 0, 95)
     infoDesc.BackgroundTransparency = 1
-    infoDesc.Text = "Основной модуль AuraCheats с полным набором функций"
+    infoDesc.Text = "Нажмите на карточку слева,\nчтобы увидеть информацию о скрипте"
     infoDesc.TextColor3 = Color3.fromRGB(180, 180, 200)
     infoDesc.TextSize = 13
     infoDesc.Font = Enum.Font.Gotham
@@ -983,7 +984,6 @@ local function showLauncher()
     print("✅ [30] Footer создан")
     
     print("🔴 [31] Создаем карточки модулей...")
-    local selectedModule = 1
     local buttons = {}
     local buttonData = {}
     local yOffset = 5
@@ -1079,15 +1079,21 @@ local function showLauncher()
         
         button.MouseButton1Click:Connect(function()
             if selectedModule == i then return end
+            
+            -- ✅ УБИРАЕМ ПОЛОСКУ У СТАРОГО
             local oldBtn = buttons[selectedModule]
             if oldBtn then
                 oldBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 55)
                 local oldLine = oldBtn:FindFirstChild("line")
                 if oldLine then oldLine.BackgroundTransparency = 1 end
             end
+            
+            -- ✅ СТАВИМ ПОЛОСКУ У НОВОГО
             selectedModule = i
             button.BackgroundColor3 = Color3.fromRGB(40, 40, 70)
             line.BackgroundTransparency = 0
+            
+            -- ✅ ОБНОВЛЯЕМ ПАНЕЛЬ
             updateInfoPanel(buttonData[button])
             selectedModuleId = moduleData.id
             print("🔴 Выбран модуль: " .. moduleData.id)
@@ -1112,7 +1118,9 @@ local function showLauncher()
     scroll.CanvasSize = UDim2.new(0, 0, 0, yOffset + 10)
     print("✅ [33] Карточки модулей созданы")
     
-    print("🔴 [34] Создаем updateInfoPanel...")
+    -- ============================================
+    -- ФУНКЦИЯ ОБНОВЛЕНИЯ ПАНЕЛИ
+    -- ============================================
     local function updateInfoPanel(data)
         infoIcon.Text = data.icon
         infoTitle.Text = data.name
@@ -1144,17 +1152,24 @@ local function showLauncher()
     end
     print("✅ [35] updateInfoPanel создана")
     
+    -- ============================================
+    -- ВЫБОР ПЕРВОГО МОДУЛЯ
+    -- ============================================
     print("🔴 [36] Выбираем первый модуль...")
     task.wait(0.5)
     local firstBtn = buttons[1]
     if firstBtn then
+        -- ✅ АВТОМАТИЧЕСКИ ВЫБИРАЕМ ПЕРВЫЙ МОДУЛЬ
         firstBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 70)
         local firstLine = firstBtn:FindFirstChild("line")
         if firstLine then firstLine.BackgroundTransparency = 0 end
         updateInfoPanel(buttonData[firstBtn])
         selectedModuleId = buttonData[firstBtn].id
+        selectedModule = 1
+        print("✅ [37] Первый модуль выбран: " .. selectedModuleId)
+    else
+        print("⚠️ [37] Нет модулей для выбора")
     end
-    print("✅ [37] Первый модуль выбран: " .. selectedModuleId)
     
     -- ============================================
     -- 🔥 КНОПКА "ЗАПУСТИТЬ"
@@ -1262,5 +1277,5 @@ else
     print("❌❌❌ [52] ОШИБКА: " .. tostring(err))
 end
 
-print("✅ [53] Private Script System v12.2 запущен!")
+print("✅ [53] Private Script System v12.3 запущен!")
 print("🔴🔴🔴 [54] Выберите скрипт и нажмите 'ЗАПУСТИТЬ' 🔴🔴🔴")
