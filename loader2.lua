@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - PRIVATE SCRIPT SYSTEM v10.10
--- FIX: game:HttpGet() ДЛЯ ВСЕХ ИНЖЕКТОРОВ
+-- 🔒 AURA CHEATS - PRIVATE SCRIPT SYSTEM v10.12
+-- FIX: ВЫВОД ПОЛНОГО ОТВЕТА СЕРВЕРА
 -- ============================================
 
-print("🔧 [1] Загрузка AuraCheats v10.10")
+print("🔧 [1] Загрузка AuraCheats v10.12")
 
 local player = game.Players.LocalPlayer
 if not player then
@@ -199,10 +199,9 @@ local function parseDate(dateString)
 end
 
 -- ============================================
--- 4. HTTP ЗАПРОСЫ (РАБОТАЮТ НА ВСЕХ ИНЖЕКТОРАХ)
+-- 4. HTTP ЗАПРОСЫ
 -- ============================================
 
--- ОСНОВНОЙ МЕТОД: game:HttpGet() — РАБОТАЕТ ВЕЗДЕ!
 local function httpGet(url)
     print("📡 HTTP GET: " .. url)
     
@@ -214,8 +213,6 @@ local function httpGet(url)
         print("✅ game:HttpGet() успешно")
         return result
     end
-    
-    print("⚠️ game:HttpGet() не сработал, пробуем syn.request...")
     
     if syn and syn.request then
         local success2, response = pcall(function()
@@ -231,8 +228,6 @@ local function httpGet(url)
             return response.Body
         end
     end
-    
-    print("⚠️ syn.request не сработал, пробуем http.request...")
     
     if http and http.request then
         local success2, response = pcall(function()
@@ -301,16 +296,76 @@ local function httpPost(url, data)
 end
 
 -- ============================================
--- 5. ЗАГРУЗКА СКРИПТА С СЕРВЕРА (ЧЕРЕЗ game:HttpGet)
+-- 5. АКТИВАЦИЯ КЛЮЧА
+-- ============================================
+local function activateKey(key)
+    print("📡 Активация ключа...")
+    
+    local data = {
+        key = key,
+        userId = player.UserId,
+        userName = player.Name,
+        executor = getexecutorname and getexecutorname() or "Unknown",
+        version = CONFIG.VERSION,
+        gameId = game.GameId or 0,
+        placeId = game.PlaceId or 0
+    }
+    
+    local response, status = httpPost(CONFIG.API_URL .. "/activate", data)
+    
+    if not response then
+        return false, "❌ Ошибка подключения к серверу"
+    end
+    
+    if response.status == "success" then
+        print("✅ Ключ активирован!")
+        if response.session_token then
+            saveData({
+                key = key,
+                userId = player.UserId,
+                expires_at = response.expires_at,
+                session_token = response.session_token,
+                activationDate = os.time(),
+                expirationDate = parseDate(response.expires_at) or (os.time() + 86400 * 7)
+            })
+        end
+        return true, response
+    elseif response.status == "error" and response.message == "Key already activated" then
+        print("✅ Ключ уже активирован, создаем сессию...")
+        local sessionResponse, sessionStatus = httpPost(CONFIG.API_URL .. "/session", {
+            userId = player.UserId,
+            executor = getexecutorname and getexecutorname() or "Unknown",
+            version = CONFIG.VERSION
+        })
+        
+        if sessionResponse and sessionResponse.status == "success" then
+            saveData({
+                key = key,
+                userId = player.UserId,
+                session_token = sessionResponse.session,
+                activationDate = os.time(),
+                expirationDate = os.time() + 86400 * 7
+            })
+            return true, { session_token = sessionResponse.session }
+        else
+            return false, "❌ Ошибка создания сессии"
+        end
+    else
+        return false, response.message or "❌ Неизвестная ошибка"
+    end
+end
+
+-- ============================================
+-- 6. ЗАГРУЗКА СКРИПТА С СЕРВЕРА (С ВЫВОДОМ ОТВЕТА)
 -- ============================================
 local function loadScriptFromServer(session_token, userId, moduleId)
-    local url = string.format(
-        "%s/script?session=%s&user_id=%s&script_name=%s",
-        CONFIG.API_URL,
-        session_token,
-        userId,
-        moduleId
-    )
+    if not moduleId or moduleId == "" then
+        moduleId = "main"
+        print("⚠️ moduleId был nil, установлен 'main'")
+    end
+    
+    local url = CONFIG.API_URL .. "/script?session=" .. session_token .. "&user_id=" .. userId .. "&script_name=" .. moduleId
+    
     print("📥 Загрузка модуля: " .. moduleId)
     print("   📡 " .. url)
     
@@ -318,14 +373,22 @@ local function loadScriptFromServer(session_token, userId, moduleId)
         local raw_response = httpGet(url)
         
         if not raw_response then
-            print("❌ Ошибка загрузки модуля")
+            print("❌ Ошибка загрузки модуля (пустой ответ)")
             return
         end
+        
+        -- ============================================
+        -- 🔥 ВЫВОДИМ ПОЛНЫЙ ОТВЕТ СЕРВЕРА
+        -- ============================================
+        print("📦 ПОЛНЫЙ ОТВЕТ СЕРВЕРА:")
+        print(raw_response)
+        print("📦 КОНЕЦ ОТВЕТА")
         
         local response_data = nil
         local success, result = pcall(function()
             return game:GetService("HttpService"):JSONDecode(raw_response)
         end)
+        
         if success and result then
             response_data = result
         else
@@ -414,70 +477,10 @@ local function loadScriptFromServer(session_token, userId, moduleId)
     end)
 end
 
--- ============================================
--- 6. АКТИВАЦИЯ КЛЮЧА
--- ============================================
-local function activateKey(key)
-    print("📡 Активация ключа...")
-    
-    local data = {
-        key = key,
-        userId = player.UserId,
-        userName = player.Name,
-        executor = getexecutorname and getexecutorname() or "Unknown",
-        version = CONFIG.VERSION,
-        gameId = game.GameId or 0,
-        placeId = game.PlaceId or 0
-    }
-    
-    local response, status = httpPost(CONFIG.API_URL .. "/activate", data)
-    
-    if not response then
-        return false, "❌ Ошибка подключения к серверу"
-    end
-    
-    if response.status == "success" then
-        print("✅ Ключ активирован!")
-        if response.session_token then
-            saveData({
-                key = key,
-                userId = player.UserId,
-                expires_at = response.expires_at,
-                session_token = response.session_token,
-                activationDate = os.time(),
-                expirationDate = parseDate(response.expires_at) or (os.time() + 86400 * 7)
-            })
-        end
-        return true, response
-    elseif response.status == "error" and response.message == "Key already activated" then
-        print("✅ Ключ уже активирован, создаем сессию...")
-        local sessionResponse, sessionStatus = httpPost(CONFIG.API_URL .. "/session", {
-            userId = player.UserId,
-            executor = getexecutorname and getexecutorname() or "Unknown",
-            version = CONFIG.VERSION
-        })
-        
-        if sessionResponse and sessionResponse.status == "success" then
-            saveData({
-                key = key,
-                userId = player.UserId,
-                session_token = sessionResponse.session,
-                activationDate = os.time(),
-                expirationDate = os.time() + 86400 * 7
-            })
-            return true, { session_token = sessionResponse.session }
-        else
-            return false, "❌ Ошибка создания сессии"
-        end
-    else
-        return false, response.message or "❌ Неизвестная ошибка"
-    end
-end
-
 print("✅ [9] Функции загружены")
 
 -- ============================================
--- 7. GUI — showScriptSelector()
+-- 7. GUI
 -- ============================================
 print("🔴 [10] Вызов showScriptSelector()...")
 
@@ -787,7 +790,6 @@ local function showScriptSelector()
         statusDot.Font = Enum.Font.GothamBold
         statusDot.Parent = button
         
-        -- СОХРАНЯЕМ ДАННЫЕ В ОТДЕЛЬНУЮ ТАБЛИЦУ
         buttonData[button] = {
             index = i,
             id = moduleData.id,
@@ -1039,5 +1041,5 @@ else
     print("❌❌❌ [60] ОШИБКА: " .. tostring(err))
 end
 
-print("✅ [61] Private Script System v10.10 запущен!")
+print("✅ [61] Private Script System v10.12 запущен!")
 print("🔴🔴🔴 [62] Нажми на фиолетовую кнопку 'ЗАПУСТИТЬ' внизу экрана! 🔴🔴🔴")
