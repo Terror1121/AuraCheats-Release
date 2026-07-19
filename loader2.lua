@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - PRIVATE SCRIPT SYSTEM v12.3
--- FIX: ПАНЕЛЬ ИНФОРМАЦИИ + ПОЛОСКА
+-- 🔒 AURA CHEATS - PRIVATE SCRIPT SYSTEM v12.4
+-- FIX: ПОЛНОСТЬЮ РАБОЧАЯ ПАНЕЛЬ
 -- ============================================
 
-print("🔧 [1] Загрузка AuraCheats v12.3")
+print("🔧 [1] Загрузка AuraCheats v12.4")
 
 local player = game.Players.LocalPlayer
 if not player then
@@ -610,7 +610,6 @@ local function showGUI(errorMessage)
     support.Parent = frame
     
     local attempts = 0
-    local activeKey = nil
     
     local function doActivate()
         local key = input.Text:gsub("%s+", "")
@@ -620,7 +619,6 @@ local function showGUI(errorMessage)
             return
         end
         
-        activeKey = key
         status.Text = "⏳ Проверка..."
         status.TextColor3 = Color3.fromRGB(255, 255, 100)
         btn.Active = false
@@ -647,11 +645,7 @@ local function showGUI(errorMessage)
                     
                     task.wait(0.5)
                     gui:Destroy()
-                    if not selectedModuleId or selectedModuleId == "" then
-                        selectedModuleId = "main"
-                        print("⚠️ selectedModuleId был nil, установлен 'main'")
-                    end
-                    loadScriptFromServer(result.session_token, player.UserId, selectedModuleId)
+                    loadScriptFromServer(result.session_token, player.UserId, selectedModuleId or "main")
                 else
                     status.Text = "❌ Не получен session_token!"
                     status.TextColor3 = Color3.fromRGB(255, 80, 80)
@@ -696,7 +690,6 @@ local function loadWithSavedKey()
     
     print("🔑 Найден сохранённый ключ: " .. saved.key)
     
-    -- Проверяем ключ на сервере
     local ok, result = checkKeyOnServer(saved.key)
     
     if not ok then
@@ -714,7 +707,6 @@ local function loadWithSavedKey()
     
     print("✅ Ключ валиден на сервере!")
     
-    -- Проверяем сессию
     if not saved.session_token then
         print("🔄 Сессии нет, создаём...")
         local sessionToken = createSession()
@@ -729,7 +721,6 @@ local function loadWithSavedKey()
         end
     end
     
-    -- ✅ ФИКС: проверяем selectedModuleId
     if not selectedModuleId or selectedModuleId == "" then
         selectedModuleId = "main"
         print("⚠️ selectedModuleId был nil, установлен 'main'")
@@ -743,7 +734,6 @@ end
 -- 11. ЛАУНЧЕР С ВЫБОРОМ СКРИПТА
 -- ============================================
 local selectedModuleId = "main"
-local selectedModule = 1
 
 print("🔴 [10] Создание лаунчера...")
 
@@ -878,9 +868,7 @@ local function showLauncher()
     accentLine.BorderSizePixel = 0
     accentLine.Parent = infoPanel
     
-    -- ============================================
-    -- ИНФОРМАЦИЯ О МОДУЛЕ (ОБНОВЛЯЕТСЯ)
-    -- ============================================
+    -- ИНФОРМАЦИЯ О МОДУЛЕ
     local infoIcon = Instance.new("TextLabel")
     infoIcon.Size = UDim2.new(0, 56, 0, 56)
     infoIcon.Position = UDim2.new(0, 24, 0, 24)
@@ -984,11 +972,57 @@ local function showLauncher()
     print("✅ [30] Footer создан")
     
     print("🔴 [31] Создаем карточки модулей...")
+    local selectedModule = 1
     local buttons = {}
     local buttonData = {}
     local yOffset = 5
     local cardHeight = 56
     local spacing = 6
+    
+    -- ФУНКЦИЯ ОБНОВЛЕНИЯ ПАНЕЛИ
+    local function updateInfoPanel(data)
+        if not data then
+            infoIcon.Text = "📋"
+            infoTitle.Text = "Выберите скрипт"
+            infoStatus.Text = ""
+            infoStatus.TextColor3 = Color3.fromRGB(180, 180, 200)
+            infoVersion.Text = ""
+            infoDesc.Text = "Нажмите на карточку слева,\nчтобы увидеть информацию о скрипте"
+            for _, label in ipairs(featureLabels) do
+                label:Destroy()
+            end
+            featureLabels = {}
+            return
+        end
+        
+        infoIcon.Text = data.icon
+        infoTitle.Text = data.name
+        infoStatus.Text = data.status == "online" and "● ONLINE" or "● WIP"
+        infoStatus.TextColor3 = data.status == "online" and Color3.fromRGB(59, 255, 122) or Color3.fromRGB(255, 200, 50)
+        infoVersion.Text = "v" .. data.version
+        infoDesc.Text = data.fullDesc
+        
+        for _, label in ipairs(featureLabels) do
+            label:Destroy()
+        end
+        featureLabels = {}
+        
+        local yPos = 0
+        for _, feature in ipairs(data.features) do
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1, 0, 0, 24)
+            label.Position = UDim2.new(0, 4, 0, yPos)
+            label.BackgroundTransparency = 1
+            label.Text = "• " .. feature
+            label.TextColor3 = Color3.fromRGB(180, 180, 210)
+            label.TextSize = 13
+            label.Font = Enum.Font.Gotham
+            label.TextXAlignment = Enum.TextXAlignment.Left
+            label.Parent = featuresList
+            table.insert(featureLabels, label)
+            yPos = yPos + 26
+        end
+    end
     
     for i, moduleData in ipairs(MODULES) do
         print("🔴 [32] Создаем карточку " .. i .. ": " .. moduleData.name)
@@ -1056,7 +1090,6 @@ local function showLauncher()
         buttonData[button] = {
             index = i,
             id = moduleData.id,
-            needsAuth = moduleData.needsAuth,
             name = moduleData.name,
             icon = moduleData.icon,
             shortDesc = moduleData.shortDesc,
@@ -1080,7 +1113,7 @@ local function showLauncher()
         button.MouseButton1Click:Connect(function()
             if selectedModule == i then return end
             
-            -- ✅ УБИРАЕМ ПОЛОСКУ У СТАРОГО
+            -- Убираем полоску у старого
             local oldBtn = buttons[selectedModule]
             if oldBtn then
                 oldBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 55)
@@ -1088,12 +1121,12 @@ local function showLauncher()
                 if oldLine then oldLine.BackgroundTransparency = 1 end
             end
             
-            -- ✅ СТАВИМ ПОЛОСКУ У НОВОГО
+            -- Ставим полоску у нового
             selectedModule = i
             button.BackgroundColor3 = Color3.fromRGB(40, 40, 70)
             line.BackgroundTransparency = 0
             
-            -- ✅ ОБНОВЛЯЕМ ПАНЕЛЬ
+            -- Обновляем панель
             updateInfoPanel(buttonData[button])
             selectedModuleId = moduleData.id
             print("🔴 Выбран модуль: " .. moduleData.id)
@@ -1118,48 +1151,10 @@ local function showLauncher()
     scroll.CanvasSize = UDim2.new(0, 0, 0, yOffset + 10)
     print("✅ [33] Карточки модулей созданы")
     
-    -- ============================================
-    -- ФУНКЦИЯ ОБНОВЛЕНИЯ ПАНЕЛИ
-    -- ============================================
-    local function updateInfoPanel(data)
-        infoIcon.Text = data.icon
-        infoTitle.Text = data.name
-        infoStatus.Text = data.status == "online" and "● ONLINE" or "● WIP"
-        infoStatus.TextColor3 = data.status == "online" and Color3.fromRGB(59, 255, 122) or Color3.fromRGB(255, 200, 50)
-        infoVersion.Text = "v" .. data.version
-        infoDesc.Text = data.fullDesc
-        
-        for _, label in ipairs(featureLabels) do
-            label:Destroy()
-        end
-        featureLabels = {}
-        
-        local yPos = 0
-        for _, feature in ipairs(data.features) do
-            local label = Instance.new("TextLabel")
-            label.Size = UDim2.new(1, 0, 0, 24)
-            label.Position = UDim2.new(0, 4, 0, yPos)
-            label.BackgroundTransparency = 1
-            label.Text = "• " .. feature
-            label.TextColor3 = Color3.fromRGB(180, 180, 210)
-            label.TextSize = 13
-            label.Font = Enum.Font.Gotham
-            label.TextXAlignment = Enum.TextXAlignment.Left
-            label.Parent = featuresList
-            table.insert(featureLabels, label)
-            yPos = yPos + 26
-        end
-    end
-    print("✅ [35] updateInfoPanel создана")
-    
-    -- ============================================
-    -- ВЫБОР ПЕРВОГО МОДУЛЯ
-    -- ============================================
     print("🔴 [36] Выбираем первый модуль...")
     task.wait(0.5)
     local firstBtn = buttons[1]
     if firstBtn then
-        -- ✅ АВТОМАТИЧЕСКИ ВЫБИРАЕМ ПЕРВЫЙ МОДУЛЬ
         firstBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 70)
         local firstLine = firstBtn:FindFirstChild("line")
         if firstLine then firstLine.BackgroundTransparency = 0 end
@@ -1235,7 +1230,7 @@ local function showLauncher()
     print("✅ [43] Анимация создана")
     
     -- ============================================
-    -- ОБРАБОТЧИК КНОПКИ → ЗАПУСКАЕТ ВЕСЬ ПРОЦЕСС
+    -- ОБРАБОТЧИК КНОПКИ
     -- ============================================
     launchBtn.MouseButton1Click:Connect(function()
         print("🔴🔴🔴 [44] КНОПКА ЗАПУСТИТЬ НАЖАТА! 🔴🔴🔴")
@@ -1248,12 +1243,8 @@ local function showLauncher()
         
         task.spawn(function()
             task.wait(0.3)
-            
-            -- Скрываем лаунчер
             screenGui:Destroy()
             launchGui:Destroy()
-            
-            -- Запускаем процесс проверки ключа и загрузки
             loadWithSavedKey()
         end)
     end)
@@ -1277,5 +1268,5 @@ else
     print("❌❌❌ [52] ОШИБКА: " .. tostring(err))
 end
 
-print("✅ [53] Private Script System v12.3 запущен!")
+print("✅ [53] Private Script System v12.4 запущен!")
 print("🔴🔴🔴 [54] Выберите скрипт и нажмите 'ЗАПУСТИТЬ' 🔴🔴🔴")
