@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - PRIVATE SCRIPT SYSTEM v11.1
--- FIX: ПОКАЗЫВАЕТ ОКНО АКТИВАЦИИ
+-- 🔒 AURA CHEATS - PRIVATE SCRIPT SYSTEM v12.0
+-- ПОРЯДОК: ЛАУНЧЕР → КЛЮЧ → ПРОВЕРКА → ЗАГРУЗКА
 -- ============================================
 
-print("🔧 [1] Загрузка AuraCheats v11.1")
+print("🔧 [1] Загрузка AuraCheats v12.0")
 
 local player = game.Players.LocalPlayer
 if not player then
@@ -234,7 +234,45 @@ local function httpGet(url)
 end
 
 -- ============================================
--- 5. АКТИВАЦИЯ КЛЮЧА (ЧЕРЕЗ GET)
+-- 5. ПРОВЕРКА КЛЮЧА НА СЕРВЕРЕ (ЧЕРЕЗ GET)
+-- ============================================
+local function checkKeyOnServer(key)
+    print("📡 Проверка ключа на сервере...")
+    
+    local url = CONFIG.API_URL .. "/check?key=" .. key .. "&userId=" .. player.UserId
+    
+    local response_str = httpGet(url)
+    
+    if not response_str then
+        print("⚠️ Сервер недоступен, используем локальные данные")
+        return true, nil
+    end
+    
+    local response = game:GetService("HttpService"):JSONDecode(response_str)
+    
+    if not response then
+        print("❌ Ошибка парсинга ответа")
+        return false, "Ошибка парсинга"
+    end
+    
+    print("📥 Статус: " .. (response.status or "unknown"))
+    
+    if response.status == "active" then
+        print("✅ Ключ активен!")
+        return true, response
+    elseif response.status == "expired" then
+        print("❌ Ключ истек!")
+        return false, "Срок действия ключа истек"
+    elseif response.status == "inactive" then
+        print("❌ Ключ не активирован!")
+        return false, "Ключ не активирован"
+    else
+        return false, response.message or "Неизвестная ошибка"
+    end
+end
+
+-- ============================================
+-- 6. АКТИВАЦИЯ КЛЮЧА (ЧЕРЕЗ GET)
 -- ============================================
 local function activateKey(key)
     print("📡 Активация ключа...")
@@ -297,7 +335,7 @@ local function activateKey(key)
 end
 
 -- ============================================
--- 6. СОЗДАНИЕ СЕССИИ (ЧЕРЕЗ GET)
+-- 7. СОЗДАНИЕ СЕССИИ (ЧЕРЕЗ GET)
 -- ============================================
 local function createSession()
     print("📡 Создание сессии...")
@@ -330,7 +368,7 @@ local function createSession()
 end
 
 -- ============================================
--- 7. ЗАГРУЗКА СКРИПТА
+-- 8. ЗАГРУЗКА СКРИПТА
 -- ============================================
 local function loadScriptFromServer(session_token, userId, moduleId)
     if not moduleId or moduleId == "" then
@@ -467,7 +505,7 @@ end
 print("✅ [9] Функции загружены")
 
 -- ============================================
--- 8. GUI ВВОДА КЛЮЧА
+-- 9. GUI ВВОДА КЛЮЧА
 -- ============================================
 local function showGUI(errorMessage)
     if not player then return end
@@ -572,6 +610,7 @@ local function showGUI(errorMessage)
     support.Parent = frame
     
     local attempts = 0
+    local activeKey = nil
     
     local function doActivate()
         local key = input.Text:gsub("%s+", "")
@@ -581,6 +620,7 @@ local function showGUI(errorMessage)
             return
         end
         
+        activeKey = key
         status.Text = "⏳ Проверка..."
         status.TextColor3 = Color3.fromRGB(255, 255, 100)
         btn.Active = false
@@ -607,7 +647,8 @@ local function showGUI(errorMessage)
                     
                     task.wait(0.5)
                     gui:Destroy()
-                    loadScriptFromServer(result.session_token, player.UserId, "main")
+                    -- После активации загружаем выбранный модуль
+                    loadScriptFromServer(result.session_token, player.UserId, selectedModuleId or "main")
                 else
                     status.Text = "❌ Не получен session_token!"
                     status.TextColor3 = Color3.fromRGB(255, 80, 80)
@@ -639,26 +680,39 @@ local function showGUI(errorMessage)
 end
 
 -- ============================================
--- 9. GUI — ЛАУНЧЕР
+-- 10. ЗАГРУЗКА ЧЕРЕЗ СОХРАНЁННЫЙ КЛЮЧ
 -- ============================================
-print("🔴 [10] Вызов showScriptSelector()...")
-
-local function showScriptSelector()
-    print("🔴 [11] showScriptSelector() начата")
-    
-    -- 🔥 ПРОВЕРЯЕМ СОХРАНЁННЫЙ КЛЮЧ
+local function loadWithSavedKey()
     local saved = loadData()
     
-    -- ✅ ЕСЛИ КЛЮЧА НЕТ — ПОКАЗЫВАЕМ ОКНО АКТИВАЦИИ!
     if not saved or not saved.key then
         print("🔑 Ключ не найден, показываем окно активации")
         showGUI()
         return
     end
     
-    print("✅ Найден сохранённый ключ: " .. saved.key)
+    print("🔑 Найден сохранённый ключ: " .. saved.key)
     
-    -- Если есть ключ, но нет сессии — создаём
+    -- Проверяем ключ на сервере
+    local ok, result = checkKeyOnServer(saved.key)
+    
+    if not ok then
+        print("❌ Ключ невалиден: " .. tostring(result))
+        -- Очищаем сохранённый ключ
+        if isFileUniversal(CONFIG.SAVE_FILE) then
+            pcall(function()
+                if syn and syn.delfile then syn.delfile(CONFIG.SAVE_FILE) end
+                if delfile then delfile(CONFIG.SAVE_FILE) end
+            end)
+        end
+        _G.AuraCheatsKeyData = nil
+        showGUI(tostring(result))
+        return
+    end
+    
+    print("✅ Ключ валиден на сервере!")
+    
+    -- Проверяем сессию
     if not saved.session_token then
         print("🔄 Сессии нет, создаём...")
         local sessionToken = createSession()
@@ -673,25 +727,532 @@ local function showScriptSelector()
         end
     end
     
-    -- Если есть ключ и сессия — загружаем скрипт
-    print("✅ Загрузка основного скрипта...")
-    loadScriptFromServer(saved.session_token, player.UserId, "main")
-    return
+    -- Загружаем выбранный модуль
+    print("📥 Загрузка модуля: " .. selectedModuleId)
+    loadScriptFromServer(saved.session_token, player.UserId, selectedModuleId)
 end
 
 -- ============================================
--- 10. ЗАПУСК
+-- 11. ЛАУНЧЕР С ВЫБОРОМ СКРИПТА
 -- ============================================
-print("📅 [56] " .. os.date("%Y-%m-%d %H:%M:%S"))
-print("👤 [57] User: " .. player.Name .. " (ID: " .. player.UserId .. ")")
+local selectedModuleId = "main"
 
-print("🔴 [58] Вызов showScriptSelector()...")
-local success, err = pcall(showScriptSelector)
+print("🔴 [10] Создание лаунчера...")
+
+local function showLauncher()
+    print("🔴 [11] showLauncher() начата")
+    
+    local oldGui = player.PlayerGui:FindFirstChild("AuraLauncher")
+    if oldGui then
+        oldGui:Destroy()
+        print("🔴 [12] Старый GUI удален")
+    end
+    
+    print("🔴 [13] Создаем ScreenGui...")
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "AuraLauncher"
+    screenGui.Parent = player.PlayerGui
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenGui.DisplayOrder = 999
+    print("✅ [14] ScreenGui создан")
+    
+    print("🔴 [15] Создаем фон...")
+    local bg = Instance.new("Frame")
+    bg.Size = UDim2.new(1, 0, 1, 0)
+    bg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    bg.BackgroundTransparency = 0.75
+    bg.Parent = screenGui
+    print("✅ [16] Фон создан")
+    
+    print("🔴 [17] Создаем контейнер...")
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(0, 780, 0, 560)
+    container.Position = UDim2.new(0.5, -390, 0.5, -280)
+    container.BackgroundColor3 = Color3.fromRGB(15, 15, 28)
+    container.BorderSizePixel = 0
+    container.Parent = screenGui
+    container.ClipsDescendants = true
+    print("✅ [18] Контейнер создан")
+    
+    print("🔴 [19] Создаем тень...")
+    local shadow = Instance.new("Frame")
+    shadow.Size = UDim2.new(1, 40, 1, 40)
+    shadow.Position = UDim2.new(0, -20, 0, -20)
+    shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    shadow.BackgroundTransparency = 0.7
+    shadow.BorderSizePixel = 0
+    shadow.Parent = container
+    shadow.ZIndex = 0
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 14)
+    corner.Parent = container
+    print("✅ [20] Тень и угол созданы")
+    
+    print("🔴 [21] Создаем заголовок...")
+    local header = Instance.new("Frame")
+    header.Size = UDim2.new(1, 0, 0, 75)
+    header.BackgroundColor3 = Color3.fromRGB(15, 15, 28)
+    header.BackgroundTransparency = 1
+    header.Parent = container
+    
+    local logo = Instance.new("TextLabel")
+    logo.Size = UDim2.new(0, 50, 1, 0)
+    logo.Position = UDim2.new(0, 20, 0, 0)
+    logo.BackgroundTransparency = 1
+    logo.Text = "⚡"
+    logo.TextColor3 = Color3.fromRGB(255, 255, 255)
+    logo.TextSize = 28
+    logo.Font = Enum.Font.GothamBold
+    logo.TextXAlignment = Enum.TextXAlignment.Left
+    logo.Parent = header
+    
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(0, 200, 0, 28)
+    title.Position = UDim2.new(0, 55, 0, 14)
+    title.BackgroundTransparency = 1
+    title.Text = "AURA CHEATS"
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextSize = 24
+    title.Font = Enum.Font.GothamBold
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = header
+    
+    local subtitle = Instance.new("TextLabel")
+    subtitle.Size = UDim2.new(0, 200, 0, 16)
+    subtitle.Position = UDim2.new(0, 55, 0, 44)
+    subtitle.BackgroundTransparency = 1
+    subtitle.Text = "PRIVATE SCRIPT SYSTEM"
+    subtitle.TextColor3 = Color3.fromRGB(120, 120, 150)
+    subtitle.TextSize = 11
+    subtitle.Font = Enum.Font.Gotham
+    subtitle.TextXAlignment = Enum.TextXAlignment.Left
+    subtitle.Parent = header
+    print("✅ [22] Заголовок создан")
+    
+    print("🔴 [23] Создаем левую панель...")
+    local listFrame = Instance.new("Frame")
+    listFrame.Size = UDim2.new(0, 290, 0, 400)
+    listFrame.Position = UDim2.new(0, 10, 0, 85)
+    listFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 28)
+    listFrame.BackgroundTransparency = 1
+    listFrame.Parent = container
+    listFrame.ClipsDescendants = true
+    
+    local scroll = Instance.new("ScrollingFrame")
+    scroll.Size = UDim2.new(1, 0, 1, 0)
+    scroll.BackgroundColor3 = Color3.fromRGB(15, 15, 28)
+    scroll.BackgroundTransparency = 1
+    scroll.BorderSizePixel = 0
+    scroll.ScrollBarThickness = 3
+    scroll.ScrollBarImageColor3 = Color3.fromRGB(128, 87, 255)
+    scroll.Parent = listFrame
+    scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    print("✅ [24] Левая панель создана")
+    
+    print("🔴 [25] Создаем правую панель...")
+    local infoPanel = Instance.new("Frame")
+    infoPanel.Size = UDim2.new(0, 430, 0, 400)
+    infoPanel.Position = UDim2.new(0, 320, 0, 85)
+    infoPanel.BackgroundColor3 = Color3.fromRGB(30, 30, 55)
+    infoPanel.BorderSizePixel = 0
+    infoPanel.Parent = container
+    infoPanel.ClipsDescendants = true
+    
+    local panelCorner = Instance.new("UICorner")
+    panelCorner.CornerRadius = UDim.new(0, 12)
+    panelCorner.Parent = infoPanel
+    
+    local accentLine = Instance.new("Frame")
+    accentLine.Size = UDim2.new(0, 3, 1, 0)
+    accentLine.BackgroundColor3 = Color3.fromRGB(128, 87, 255)
+    accentLine.BorderSizePixel = 0
+    accentLine.Parent = infoPanel
+    print("✅ [26] Правая панель создана")
+    
+    print("🔴 [27] Создаем информацию о модуле...")
+    local infoIcon = Instance.new("TextLabel")
+    infoIcon.Size = UDim2.new(0, 56, 0, 56)
+    infoIcon.Position = UDim2.new(0, 24, 0, 24)
+    infoIcon.BackgroundTransparency = 1
+    infoIcon.Text = "🎯"
+    infoIcon.TextSize = 40
+    infoIcon.Font = Enum.Font.GothamBold
+    infoIcon.TextXAlignment = Enum.TextXAlignment.Left
+    infoIcon.Parent = infoPanel
+    
+    local infoTitle = Instance.new("TextLabel")
+    infoTitle.Size = UDim2.new(0, 200, 0, 26)
+    infoTitle.Position = UDim2.new(0, 92, 0, 22)
+    infoTitle.BackgroundTransparency = 1
+    infoTitle.Text = "Main"
+    infoTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    infoTitle.TextSize = 20
+    infoTitle.Font = Enum.Font.GothamBold
+    infoTitle.TextXAlignment = Enum.TextXAlignment.Left
+    infoTitle.Parent = infoPanel
+    
+    local infoStatus = Instance.new("TextLabel")
+    infoStatus.Size = UDim2.new(0, 100, 0, 18)
+    infoStatus.Position = UDim2.new(0, 92, 0, 50)
+    infoStatus.BackgroundTransparency = 1
+    infoStatus.Text = "● ONLINE"
+    infoStatus.TextColor3 = Color3.fromRGB(59, 255, 122)
+    infoStatus.TextSize = 12
+    infoStatus.Font = Enum.Font.GothamBold
+    infoStatus.TextXAlignment = Enum.TextXAlignment.Left
+    infoStatus.Parent = infoPanel
+    
+    local infoVersion = Instance.new("TextLabel")
+    infoVersion.Size = UDim2.new(0, 80, 0, 18)
+    infoVersion.Position = UDim2.new(0, 180, 0, 50)
+    infoVersion.BackgroundTransparency = 1
+    infoVersion.Text = "v5.2.1"
+    infoVersion.TextColor3 = Color3.fromRGB(128, 87, 255)
+    infoVersion.TextSize = 12
+    infoVersion.Font = Enum.Font.GothamBold
+    infoVersion.TextXAlignment = Enum.TextXAlignment.Left
+    infoVersion.Parent = infoPanel
+    
+    local infoDesc = Instance.new("TextLabel")
+    infoDesc.Size = UDim2.new(1, -32, 0, 38)
+    infoDesc.Position = UDim2.new(0, 16, 0, 95)
+    infoDesc.BackgroundTransparency = 1
+    infoDesc.Text = "Основной модуль AuraCheats с полным набором функций"
+    infoDesc.TextColor3 = Color3.fromRGB(180, 180, 200)
+    infoDesc.TextSize = 13
+    infoDesc.Font = Enum.Font.Gotham
+    infoDesc.TextXAlignment = Enum.TextXAlignment.Left
+    infoDesc.TextWrapped = true
+    infoDesc.Parent = infoPanel
+    
+    local descDivider = Instance.new("Frame")
+    descDivider.Size = UDim2.new(1, -32, 0, 1)
+    descDivider.Position = UDim2.new(0, 16, 0, 143)
+    descDivider.BackgroundColor3 = Color3.fromRGB(40, 40, 70)
+    descDivider.BorderSizePixel = 0
+    descDivider.Parent = infoPanel
+    
+    local featuresTitle = Instance.new("TextLabel")
+    featuresTitle.Size = UDim2.new(1, -32, 0, 20)
+    featuresTitle.Position = UDim2.new(0, 16, 0, 153)
+    featuresTitle.BackgroundTransparency = 1
+    featuresTitle.Text = "ВОЗМОЖНОСТИ"
+    featuresTitle.TextColor3 = Color3.fromRGB(128, 87, 255)
+    featuresTitle.TextSize = 11
+    featuresTitle.Font = Enum.Font.GothamBold
+    featuresTitle.TextXAlignment = Enum.TextXAlignment.Left
+    featuresTitle.Parent = infoPanel
+    
+    local featuresList = Instance.new("Frame")
+    featuresList.Size = UDim2.new(1, -32, 0, 125)
+    featuresList.Position = UDim2.new(0, 16, 0, 178)
+    featuresList.BackgroundColor3 = Color3.fromRGB(30, 30, 55)
+    featuresList.BackgroundTransparency = 1
+    featuresList.Parent = infoPanel
+    
+    local featureLabels = {}
+    print("✅ [28] Информация о модуле создана")
+    
+    print("🔴 [29] Создаем footer...")
+    local footer = Instance.new("Frame")
+    footer.Size = UDim2.new(1, -40, 0, 24)
+    footer.Position = UDim2.new(0, 20, 1, -28)
+    footer.BackgroundColor3 = Color3.fromRGB(15, 15, 28)
+    footer.BackgroundTransparency = 1
+    footer.Parent = container
+    
+    local footerText = Instance.new("TextLabel")
+    footerText.Size = UDim2.new(1, 0, 1, 0)
+    footerText.BackgroundTransparency = 1
+    footerText.Text = "AuraCheats v" .. CONFIG.LAUNCHER_VERSION .. "  •  User: " .. player.Name .. "  •  Discord: Connected"
+    footerText.TextColor3 = Color3.fromRGB(80, 80, 100)
+    footerText.TextSize = 10
+    footerText.Font = Enum.Font.Gotham
+    footerText.TextXAlignment = Enum.TextXAlignment.Center
+    footerText.Parent = footer
+    print("✅ [30] Footer создан")
+    
+    print("🔴 [31] Создаем карточки модулей...")
+    local selectedModule = 1
+    local buttons = {}
+    local buttonData = {}
+    local yOffset = 5
+    local cardHeight = 56
+    local spacing = 6
+    
+    for i, moduleData in ipairs(MODULES) do
+        print("🔴 [32] Создаем карточку " .. i .. ": " .. moduleData.name)
+        local button = Instance.new("TextButton")
+        button.Size = UDim2.new(1, 0, 0, cardHeight)
+        button.Position = UDim2.new(0, 0, 0, yOffset)
+        button.BackgroundColor3 = Color3.fromRGB(30, 30, 55)
+        button.BorderSizePixel = 0
+        button.Text = ""
+        button.AutoButtonColor = false
+        button.Parent = scroll
+        
+        local btnCorner2 = Instance.new("UICorner")
+        btnCorner2.CornerRadius = UDim.new(0, 8)
+        btnCorner2.Parent = button
+        
+        local line = Instance.new("Frame")
+        line.Size = UDim2.new(0, 3, 0, 28)
+        line.Position = UDim2.new(0, 8, 0.5, -14)
+        line.BackgroundColor3 = Color3.fromRGB(128, 87, 255)
+        line.BackgroundTransparency = 1
+        line.BorderSizePixel = 0
+        line.Parent = button
+        
+        local icon = Instance.new("TextLabel")
+        icon.Size = UDim2.new(0, 28, 1, 0)
+        icon.Position = UDim2.new(0, 18, 0, 0)
+        icon.BackgroundTransparency = 1
+        icon.Text = moduleData.icon
+        icon.TextSize = 18
+        icon.Font = Enum.Font.GothamBold
+        icon.Parent = button
+        
+        local name = Instance.new("TextLabel")
+        name.Size = UDim2.new(0, 110, 0, 18)
+        name.Position = UDim2.new(0, 54, 0, 8)
+        name.BackgroundTransparency = 1
+        name.Text = moduleData.name
+        name.TextColor3 = Color3.fromRGB(255, 255, 255)
+        name.TextSize = 14
+        name.Font = Enum.Font.GothamBold
+        name.TextXAlignment = Enum.TextXAlignment.Left
+        name.Parent = button
+        
+        local desc = Instance.new("TextLabel")
+        desc.Size = UDim2.new(0, 140, 0, 14)
+        desc.Position = UDim2.new(0, 54, 0, 28)
+        desc.BackgroundTransparency = 1
+        desc.Text = moduleData.shortDesc
+        desc.TextColor3 = Color3.fromRGB(140, 140, 170)
+        desc.TextSize = 10
+        desc.Font = Enum.Font.Gotham
+        desc.TextXAlignment = Enum.TextXAlignment.Left
+        desc.Parent = button
+        
+        local statusDot = Instance.new("TextLabel")
+        statusDot.Size = UDim2.new(0, 12, 0, 12)
+        statusDot.Position = UDim2.new(1, -20, 0.5, -6)
+        statusDot.BackgroundTransparency = 1
+        statusDot.Text = moduleData.status == "online" and "🟢" or "🟡"
+        statusDot.TextSize = 10
+        statusDot.Font = Enum.Font.GothamBold
+        statusDot.Parent = button
+        
+        buttonData[button] = {
+            index = i,
+            id = moduleData.id,
+            needsAuth = moduleData.needsAuth,
+            name = moduleData.name,
+            icon = moduleData.icon,
+            shortDesc = moduleData.shortDesc,
+            fullDesc = moduleData.fullDesc,
+            features = moduleData.features,
+            status = moduleData.status,
+            version = moduleData.version,
+        }
+        
+        button.MouseEnter:Connect(function()
+            if selectedModule ~= i then
+                button.BackgroundColor3 = Color3.fromRGB(40, 40, 70)
+            end
+        end)
+        button.MouseLeave:Connect(function()
+            if selectedModule ~= i then
+                button.BackgroundColor3 = Color3.fromRGB(30, 30, 55)
+            end
+        end)
+        
+        button.MouseButton1Click:Connect(function()
+            if selectedModule == i then return end
+            local oldBtn = buttons[selectedModule]
+            if oldBtn then
+                oldBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 55)
+                local oldLine = oldBtn:FindFirstChild("line")
+                if oldLine then oldLine.BackgroundTransparency = 1 end
+            end
+            selectedModule = i
+            button.BackgroundColor3 = Color3.fromRGB(40, 40, 70)
+            line.BackgroundTransparency = 0
+            updateInfoPanel(buttonData[button])
+            selectedModuleId = moduleData.id
+            print("🔴 Выбран модуль: " .. moduleData.id)
+        end)
+        
+        button.Size = UDim2.new(1, 0, 0, 0)
+        local delay = i * 0.04
+        task.spawn(function()
+            task.wait(0.3 + delay)
+            for j = 1, 10 do
+                local progress = j / 10
+                button.Size = UDim2.new(1, 0, 0, cardHeight * progress)
+                task.wait(0.015)
+            end
+            button.Size = UDim2.new(1, 0, 0, cardHeight)
+        end)
+        
+        buttons[i] = button
+        yOffset = yOffset + cardHeight + spacing
+    end
+    
+    scroll.CanvasSize = UDim2.new(0, 0, 0, yOffset + 10)
+    print("✅ [33] Карточки модулей созданы")
+    
+    print("🔴 [34] Создаем updateInfoPanel...")
+    local function updateInfoPanel(data)
+        infoIcon.Text = data.icon
+        infoTitle.Text = data.name
+        infoStatus.Text = data.status == "online" and "● ONLINE" or "● WIP"
+        infoStatus.TextColor3 = data.status == "online" and Color3.fromRGB(59, 255, 122) or Color3.fromRGB(255, 200, 50)
+        infoVersion.Text = "v" .. data.version
+        infoDesc.Text = data.fullDesc
+        
+        for _, label in ipairs(featureLabels) do
+            label:Destroy()
+        end
+        featureLabels = {}
+        
+        local yPos = 0
+        for _, feature in ipairs(data.features) do
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1, 0, 0, 24)
+            label.Position = UDim2.new(0, 4, 0, yPos)
+            label.BackgroundTransparency = 1
+            label.Text = "• " .. feature
+            label.TextColor3 = Color3.fromRGB(180, 180, 210)
+            label.TextSize = 13
+            label.Font = Enum.Font.Gotham
+            label.TextXAlignment = Enum.TextXAlignment.Left
+            label.Parent = featuresList
+            table.insert(featureLabels, label)
+            yPos = yPos + 26
+        end
+    end
+    print("✅ [35] updateInfoPanel создана")
+    
+    print("🔴 [36] Выбираем первый модуль...")
+    task.wait(0.5)
+    local firstBtn = buttons[1]
+    if firstBtn then
+        firstBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 70)
+        local firstLine = firstBtn:FindFirstChild("line")
+        if firstLine then firstLine.BackgroundTransparency = 0 end
+        updateInfoPanel(buttonData[firstBtn])
+        selectedModuleId = buttonData[firstBtn].id
+    end
+    print("✅ [37] Первый модуль выбран: " .. selectedModuleId)
+    
+    -- ============================================
+    -- 🔥 КНОПКА "ЗАПУСТИТЬ"
+    -- ============================================
+    print("🔴 [38] СОЗДАЕМ КНОПКУ ЗАПУСТИТЬ!")
+    
+    local launchGui = Instance.new("ScreenGui")
+    launchGui.Name = "LaunchButtonGui"
+    launchGui.Parent = player.PlayerGui
+    launchGui.ResetOnSpawn = false
+    launchGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    launchGui.DisplayOrder = 999
+    print("✅ [39] launchGui создан")
+    
+    local launchBtn = Instance.new("TextButton")
+    launchBtn.Size = UDim2.new(0, 300, 0, 46)
+    launchBtn.Position = UDim2.new(0.5, -150, 0.92, 0)
+    launchBtn.BackgroundColor3 = Color3.fromRGB(128, 87, 255)
+    launchBtn.BorderSizePixel = 0
+    launchBtn.Text = "▶  ЗАПУСТИТЬ"
+    launchBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    launchBtn.TextSize = 15
+    launchBtn.Font = Enum.Font.GothamBold
+    launchBtn.Parent = launchGui
+    launchBtn.ZIndex = 999
+    print("✅ [40] launchBtn создан")
+    
+    local btnCorner3 = Instance.new("UICorner")
+    btnCorner3.CornerRadius = UDim.new(0, 10)
+    btnCorner3.Parent = launchBtn
+    print("✅ [41] Угол кнопки создан")
+    
+    local launchState = Instance.new("TextLabel")
+    launchState.Size = UDim2.new(0, 250, 0, 18)
+    launchState.Position = UDim2.new(0.5, -125, 0, -25)
+    launchState.BackgroundTransparency = 1
+    launchState.Text = ""
+    launchState.TextColor3 = Color3.fromRGB(180, 180, 200)
+    launchState.TextSize = 11
+    launchState.Font = Enum.Font.Gotham
+    launchState.TextXAlignment = Enum.TextXAlignment.Center
+    launchState.Visible = false
+    launchState.Parent = launchBtn
+    print("✅ [42] launchState создан")
+    
+    launchBtn.MouseEnter:Connect(function()
+        launchBtn.BackgroundColor3 = Color3.fromRGB(160, 120, 255)
+        launchBtn.Size = UDim2.new(0, 306, 0, 48)
+        launchBtn.Position = UDim2.new(0.5, -153, 0.92, 0)
+    end)
+    launchBtn.MouseLeave:Connect(function()
+        launchBtn.BackgroundColor3 = Color3.fromRGB(128, 87, 255)
+        launchBtn.Size = UDim2.new(0, 300, 0, 46)
+        launchBtn.Position = UDim2.new(0.5, -150, 0.92, 0)
+    end)
+    launchBtn.MouseButton1Down:Connect(function()
+        launchBtn.Size = UDim2.new(0, 294, 0, 44)
+        launchBtn.Position = UDim2.new(0.5, -147, 0.92, 0)
+        task.wait(0.1)
+        launchBtn.Size = UDim2.new(0, 300, 0, 46)
+        launchBtn.Position = UDim2.new(0.5, -150, 0.92, 0)
+    end)
+    print("✅ [43] Анимация создана")
+    
+    -- ============================================
+    -- ОБРАБОТЧИК КНОПКИ → ЗАПУСКАЕТ ВЕСЬ ПРОЦЕСС
+    -- ============================================
+    launchBtn.MouseButton1Click:Connect(function()
+        print("🔴🔴🔴 [44] КНОПКА ЗАПУСТИТЬ НАЖАТА! 🔴🔴🔴")
+        print("🚀 [45] Выбран модуль: " .. selectedModuleId)
+        
+        launchBtn.Visible = false
+        launchState.Visible = true
+        launchState.Text = "⏳ Проверка..."
+        launchState.TextColor3 = Color3.fromRGB(255, 255, 100)
+        
+        task.spawn(function()
+            task.wait(0.3)
+            
+            -- Скрываем лаунчер
+            screenGui:Destroy()
+            launchGui:Destroy()
+            
+            -- Запускаем процесс проверки ключа и загрузки
+            loadWithSavedKey()
+        end)
+    end)
+    
+    print("✅ [46] Обработчик кнопки создан")
+    print("🔴🔴🔴 [47] КНОПКА ГОТОВА! 🔴🔴🔴")
+end
+
+-- ============================================
+-- 12. ЗАПУСК
+-- ============================================
+print("📅 [48] " .. os.date("%Y-%m-%d %H:%M:%S"))
+print("👤 [49] User: " .. player.Name .. " (ID: " .. player.UserId .. ")")
+
+print("🔴 [50] Запуск лаунчера...")
+local success, err = pcall(showLauncher)
 
 if success then
-    print("✅ [59] showScriptSelector() выполнен успешно!")
+    print("✅ [51] Лаунчер запущен успешно!")
 else
-    print("❌❌❌ [60] ОШИБКА: " .. tostring(err))
+    print("❌❌❌ [52] ОШИБКА: " .. tostring(err))
 end
 
-print("✅ [61] Private Script System v11.1 запущен!")
+print("✅ [53] Private Script System v12.0 запущен!")
+print("🔴🔴🔴 [54] Выберите скрипт и нажмите 'ЗАПУСТИТЬ' 🔴🔴🔴")
