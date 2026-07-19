@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - PRIVATE SCRIPT SYSTEM v12.0
--- ПОРЯДОК: ЛАУНЧЕР → КЛЮЧ → ПРОВЕРКА → ЗАГРУЗКА
+-- 🔒 AURA CHEATS - PRIVATE SCRIPT SYSTEM v12.2
+-- FIX: selectedModuleId nil
 -- ============================================
 
-print("🔧 [1] Загрузка AuraCheats v12.0")
+print("🔧 [1] Загрузка AuraCheats v12.2")
 
 local player = game.Players.LocalPlayer
 if not player then
@@ -648,7 +648,11 @@ local function showGUI(errorMessage)
                     task.wait(0.5)
                     gui:Destroy()
                     -- После активации загружаем выбранный модуль
-                    loadScriptFromServer(result.session_token, player.UserId, selectedModuleId or "main")
+                    if not selectedModuleId or selectedModuleId == "" then
+                        selectedModuleId = "main"
+                        print("⚠️ selectedModuleId был nil, установлен 'main'")
+                    end
+                    loadScriptFromServer(result.session_token, player.UserId, selectedModuleId)
                 else
                     status.Text = "❌ Не получен session_token!"
                     status.TextColor3 = Color3.fromRGB(255, 80, 80)
@@ -698,7 +702,6 @@ local function loadWithSavedKey()
     
     if not ok then
         print("❌ Ключ невалиден: " .. tostring(result))
-        -- Очищаем сохранённый ключ
         if isFileUniversal(CONFIG.SAVE_FILE) then
             pcall(function()
                 if syn and syn.delfile then syn.delfile(CONFIG.SAVE_FILE) end
@@ -727,7 +730,12 @@ local function loadWithSavedKey()
         end
     end
     
-    -- Загружаем выбранный модуль
+    -- ✅ ФИКС: проверяем selectedModuleId
+    if not selectedModuleId or selectedModuleId == "" then
+        selectedModuleId = "main"
+        print("⚠️ selectedModuleId был nil, установлен 'main'")
+    end
+    
     print("📥 Загрузка модуля: " .. selectedModuleId)
     loadScriptFromServer(saved.session_token, player.UserId, selectedModuleId)
 end
@@ -1254,5 +1262,5 @@ else
     print("❌❌❌ [52] ОШИБКА: " .. tostring(err))
 end
 
-print("✅ [53] Private Script System v12.0 запущен!")
+print("✅ [53] Private Script System v12.2 запущен!")
 print("🔴🔴🔴 [54] Выберите скрипт и нажмите 'ЗАПУСТИТЬ' 🔴🔴🔴")
