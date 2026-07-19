@@ -1,9 +1,9 @@
 -- ============================================
--- 🔒 AURA CHEATS - PRIVATE SCRIPT SYSTEM v12.5
--- FIX: ПОЛОСКИ ПРОПАДАЮТ
+-- 🔒 AURA CHEATS - PRIVATE SCRIPT SYSTEM v12.6
+-- FIX: ПАНЕЛЬ + ПОЛОСКИ
 -- ============================================
 
-print("🔧 [1] Загрузка AuraCheats v12.5")
+print("🔧 [1] Загрузка AuraCheats v12.6")
 
 local player = game.Players.LocalPlayer
 if not player then
@@ -69,7 +69,7 @@ local MODULES = {
         icon = "🍎",
         shortDesc = "Фарм ресурсов и квестов",
         fullDesc = "Автоматический фарм фруктов, квестов и телепорты по карте",
-        features = {"AutoFarm", "ESP", "Teleport", "AutoQuest", "Fruit Finder", "Boss Farm"},
+        features = {"AutoFarm", "Teleport", "ESP", "AutoQuest", "Fruit Finder", "Boss Farm"},
         status = "online",
         needsAuth = false,
         version = "3.1.0",
@@ -733,7 +733,7 @@ end
 -- ============================================
 -- 11. ЛАУНЧЕР С ВЫБОРОМ СКРИПТА
 -- ============================================
-local selectedModuleId = "main"
+local selectedModuleId = nil  -- ← ИЗМЕНЕНО: НЕТ ЗНАЧЕНИЯ ПО УМОЛЧАНИЮ!
 local selectedModule = 1
 
 print("🔴 [10] Создание лаунчера...")
@@ -869,7 +869,7 @@ local function showLauncher()
     accentLine.BorderSizePixel = 0
     accentLine.Parent = infoPanel
     
-    -- ИНФОРМАЦИЯ О МОДУЛЕ
+    -- ИНФОРМАЦИЯ О МОДУЛЕ (СТАРТОВОЕ СОСТОЯНИЕ: "ВЫБЕРИТЕ СКРИПТ")
     local infoIcon = Instance.new("TextLabel")
     infoIcon.Size = UDim2.new(0, 56, 0, 56)
     infoIcon.Position = UDim2.new(0, 24, 0, 24)
@@ -979,7 +979,7 @@ local function showLauncher()
     local cardHeight = 56
     local spacing = 6
     
-    -- ФУНКЦИЯ ОБНОВЛЕНИЯ ПАНЕЛИ
+    -- ФУНКЦИЯ ОБНОВЛЕНИЯ ПАНЕЛИ (ВЫЗЫВАЕТСЯ ТОЛЬКО ПРИ КЛИКЕ)
     local function updateInfoPanel(data)
         if not data then
             infoIcon.Text = "📋"
@@ -1110,12 +1110,11 @@ local function showLauncher()
             end
         end)
         
-        -- ✅ ИСПРАВЛЕННЫЙ КЛИК
         button.MouseButton1Click:Connect(function()
-            -- ✅ Если кликнули на уже выбранный модуль — ничего не делаем
+            -- Если кликнули на уже выбранный модуль — ничего не делаем
             if selectedModule == i then return end
             
-            -- ✅ Убираем полоску у СТАРОГО модуля
+            -- Убираем полоску у СТАРОГО модуля
             local oldBtn = buttons[selectedModule]
             if oldBtn then
                 oldBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 55)
@@ -1123,12 +1122,12 @@ local function showLauncher()
                 if oldLine then oldLine.BackgroundTransparency = 1 end
             end
             
-            -- ✅ Ставим полоску у НОВОГО модуля
+            -- Ставим полоску у НОВОГО модуля
             selectedModule = i
             button.BackgroundColor3 = Color3.fromRGB(40, 40, 70)
             line.BackgroundTransparency = 0
             
-            -- ✅ Обновляем панель
+            -- Обновляем панель
             updateInfoPanel(buttonData[button])
             selectedModuleId = moduleData.id
             print("🔴 Выбран модуль: " .. moduleData.id)
@@ -1153,20 +1152,9 @@ local function showLauncher()
     scroll.CanvasSize = UDim2.new(0, 0, 0, yOffset + 10)
     print("✅ [33] Карточки модулей созданы")
     
-    print("🔴 [36] Выбираем первый модуль...")
-    task.wait(0.5)
-    local firstBtn = buttons[1]
-    if firstBtn then
-        firstBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 70)
-        local firstLine = firstBtn:FindFirstChild("line")
-        if firstLine then firstLine.BackgroundTransparency = 0 end
-        updateInfoPanel(buttonData[firstBtn])
-        selectedModuleId = buttonData[firstBtn].id
-        selectedModule = 1
-        print("✅ [37] Первый модуль выбран: " .. selectedModuleId)
-    else
-        print("⚠️ [37] Нет модулей для выбора")
-    end
+    -- ✅ НЕ ВЫБИРАЕМ ПЕРВЫЙ МОДУЛЬ АВТОМАТИЧЕСКИ!
+    -- Показываем стартовое состояние "Выберите скрипт"
+    print("🔴 [36] Ожидание выбора модуля...")
     
     -- ============================================
     -- 🔥 КНОПКА "ЗАПУСТИТЬ"
@@ -1236,6 +1224,18 @@ local function showLauncher()
     -- ============================================
     launchBtn.MouseButton1Click:Connect(function()
         print("🔴🔴🔴 [44] КНОПКА ЗАПУСТИТЬ НАЖАТА! 🔴🔴🔴")
+        
+        -- ✅ ПРОВЕРЯЕМ, ВЫБРАН ЛИ МОДУЛЬ
+        if not selectedModuleId then
+            print("⚠️ Модуль не выбран!")
+            launchState.Text = "⚠️ Выберите скрипт!"
+            launchState.TextColor3 = Color3.fromRGB(255, 200, 50)
+            task.wait(2)
+            launchState.Text = ""
+            launchBtn.Visible = true
+            return
+        end
+        
         print("🚀 [45] Выбран модуль: " .. selectedModuleId)
         
         launchBtn.Visible = false
@@ -1270,5 +1270,5 @@ else
     print("❌❌❌ [52] ОШИБКА: " .. tostring(err))
 end
 
-print("✅ [53] Private Script System v12.5 запущен!")
+print("✅ [53] Private Script System v12.6 запущен!")
 print("🔴🔴🔴 [54] Выберите скрипт и нажмите 'ЗАПУСТИТЬ' 🔴🔴🔴")
