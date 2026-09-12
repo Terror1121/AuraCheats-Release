@@ -427,6 +427,8 @@ local function loadScriptFromServer(session_token, moduleId)
         return false
     end
     
+    encrypted_b64 = encrypted_b64:gsub("%s+", "")
+    
     print("📦 Декодируем Base64...")
     
     local encrypted_bytes = nil
