@@ -368,6 +368,18 @@ local function loadScriptFromServer(session_token, moduleId)
     
     local response_data, status = doLoadScript(currentSession)
     
+    if status == "server_error" then
+        print("🔄 Ошибка сервера, повтор через 1 сек...")
+        task.wait(1)
+        response_data, status = doLoadScript(currentSession)
+    end
+    
+    if status == "server_error" then
+        print("🔄 Вторая попытка через 1.5 сек...")
+        task.wait(1.5)
+        response_data, status = doLoadScript(currentSession)
+    end
+    
     if status == "invalid_session" then
         print("🔄 Сессия невалидна, создаем новую...")
         local execName = injectorName
