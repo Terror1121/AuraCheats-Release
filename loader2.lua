@@ -9,7 +9,10 @@ print("🔧 Загрузка AuraCheats v5.41 (Universal)")
 -- 1. КОНФИГУРАЦИЯ
 -- ============================================
 local CONFIG = {
-    API_URL = "https://aura-cheats-bot.onrender.com/api/v6",
+    API_URLS = {
+        "https://aura-proxy.lykkur21.workers.dev/api/v6",
+        "https://aura-cheats-bot.onrender.com/api/v6",
+    },
     SAVE_FILE = "AuraCheatsKeyData",
     ENCRYPT_KEY = "AuraCheats2024",
     VERSION = "2.2.25",
@@ -132,6 +135,22 @@ local function httpGet(url)
 end
 
 -- ============================================
+-- 3.1 API GET С ЗЕРКАЛАМИ
+-- ============================================
+local function apiGet(path)
+    for i, baseUrl in ipairs(CONFIG.API_URLS) do
+        local url = baseUrl .. path
+        print("🌐 API зеркало #" .. i .. ": " .. baseUrl)
+        local result = httpGet(url)
+        if result then
+            return result
+        end
+        print("⚠️ Зеркало #" .. i .. " недоступно, пробуем следующее...")
+    end
+    return nil
+end
+
+-- ============================================
 -- 4. УНИВЕРСАЛЬНАЯ ЗАПИСЬ ФАЙЛА
 -- ============================================
 local function writeFileUniversal(path, data)
@@ -241,7 +260,7 @@ local function activateKey(key)
     local player = game.Players.LocalPlayer
     local execName = injectorName
     
-    local url = CONFIG.API_URL .. "/activate?key=" .. key ..
+    local path = "/activate?key=" .. key ..
                 "&userId=" .. tostring(player.UserId) ..
                 "&userName=" .. tostring(player.Name) ..
                 "&executor=" .. tostring(execName) ..
@@ -249,7 +268,7 @@ local function activateKey(key)
                 "&gameId=" .. tostring(game.GameId or 0) ..
                 "&placeId=" .. tostring(game.PlaceId or 0)
     
-    local response_str = httpGet(url)
+    local response_str = apiGet(path)
     
     if not response_str then
         return false, "❌ Ошибка подключения к серверу"
@@ -274,10 +293,10 @@ local function activateKey(key)
         return true, response
     elseif response.status == "error" and response.message == "Key already activated" then
         print("✅ Ключ уже активирован, создаем сессию...")
-        local sessionUrl = CONFIG.API_URL .. "/session?user_id=" .. tostring(player.UserId) ..
+        local sessionPath = "/session?user_id=" .. tostring(player.UserId) ..
                            "&executor=" .. tostring(execName) ..
                            "&version=" .. tostring(CONFIG.VERSION)
-        local sessionResponse_str = httpGet(sessionUrl)
+        local sessionResponse_str = apiGet(sessionPath)
         if sessionResponse_str then
             local sessionResult = game:GetService("HttpService"):JSONDecode(sessionResponse_str)
             if sessionResult and sessionResult.status == "success" and sessionResult.session then
@@ -310,9 +329,9 @@ local function loadScriptFromServer(session_token, moduleId)
     end
     
     local function doLoadScript(token)
-        local url = CONFIG.API_URL .. "/script?session=" .. token .. "&user_id=" .. userId .. "&script_name=" .. moduleId
+        local path = "/script?session=" .. token .. "&user_id=" .. userId .. "&script_name=" .. moduleId
         
-        local raw_response = httpGet(url)
+        local raw_response = apiGet(path)
         
         if not raw_response then
             return nil, "empty_response"
@@ -352,11 +371,11 @@ local function loadScriptFromServer(session_token, moduleId)
     if status == "invalid_session" then
         print("🔄 Сессия невалидна, создаем новую...")
         local execName = injectorName
-        local sessionUrl = CONFIG.API_URL .. "/session?user_id=" .. userId ..
+        local sessionPath = "/session?user_id=" .. userId ..
                            "&executor=" .. execName ..
                            "&version=" .. CONFIG.VERSION
         
-        local sessionResponse_str = httpGet(sessionUrl)
+        local sessionResponse_str = apiGet(sessionPath)
         if not sessionResponse_str then
             print("❌ Ошибка создания сессии")
             return false
@@ -675,10 +694,10 @@ if saved and saved.key and saved.userId == player.UserId then
         loadScriptFromServer(saved.session_token, "main")
     else
         print("⚠️ Нет session_token, создаем...")
-        local sessionUrl = CONFIG.API_URL .. "/session?user_id=" .. player.UserId ..
+        local sessionPath = "/session?user_id=" .. player.UserId ..
                            "&executor=" .. injectorName ..
                            "&version=" .. CONFIG.VERSION
-        local sessionResponse_str = httpGet(sessionUrl)
+        local sessionResponse_str = apiGet(sessionPath)
         if sessionResponse_str then
             local sessionResponse = game:GetService("HttpService"):JSONDecode(sessionResponse_str)
             if sessionResponse and sessionResponse.status == "success" and sessionResponse.session then
