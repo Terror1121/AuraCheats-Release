@@ -10,7 +10,7 @@ print("🔧 Загрузка AuraCheats v5.41 (Universal)")
 -- ============================================
 local CONFIG = {
     API_URLS = {
-        "https://aura-proxy.lykkur21.workers.dev/api/v6",
+        "https://auracheats.ru/api/v6",
         "https://aura-cheats-bot.onrender.com/api/v6",
     },
     SAVE_FILE = "AuraCheatsKeyData",
