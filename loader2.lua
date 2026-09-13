@@ -368,15 +368,16 @@ local function loadScriptFromServer(session_token, moduleId)
     
     local response_data, status = doLoadScript(currentSession)
     
-    if status == "server_error" then
-        print("🔄 Ошибка сервера, повтор через 1 сек...")
+    -- Retry on any error (replication lag, WAF, network issues)
+    if status ~= "success" and status ~= "invalid_session" then
+        print("🔄 Повтор через 1 сек (ошибка: " .. status .. ")...")
         task.wait(1)
         response_data, status = doLoadScript(currentSession)
     end
     
-    if status == "server_error" then
-        print("🔄 Вторая попытка через 1.5 сек...")
-        task.wait(1.5)
+    if status ~= "success" and status ~= "invalid_session" then
+        print("🔄 Вторая попытка через 2 сек...")
+        task.wait(2)
         response_data, status = doLoadScript(currentSession)
     end
     
