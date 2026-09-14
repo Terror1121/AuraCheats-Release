@@ -381,39 +381,32 @@ local function loadScriptFromServer(session_token, moduleId)
         response_data, status = doLoadScript(currentSession)
     end
     
-    if status == "invalid_session" then
-        print("🔄 Сессия невалидна, создаем новую...")
+    if status ~= "success" then
+        print("🔄 /script не сработал, получаем скрипт через /session...")
         local execName = injectorName
         local sessionPath = "/session?user_id=" .. userId ..
                            "&executor=" .. execName ..
-                           "&version=" .. CONFIG.VERSION
+                           "&version=" .. CONFIG.VERSION ..
+                           "&script_name=" .. moduleId
         
         local sessionResponse_str = apiGet(sessionPath)
-        if not sessionResponse_str then
-            print("❌ Ошибка создания сессии")
-            return false
-        end
-        
-        local sessionResponse = game:GetService("HttpService"):JSONDecode(sessionResponse_str)
-        if not sessionResponse or sessionResponse.status ~= "success" then
-            print("❌ Ошибка создания сессии")
-            return false
-        end
-        
-        local new_session_token = sessionResponse.session
-        print("✅ Новая сессия создана: " .. new_session_token)
-        
-        local saved = loadData()
-        if saved then
-            saved.session_token = new_session_token
-            saveData(saved)
-        end
-        
-        currentSession = new_session_token
-        response_data, status = doLoadScript(currentSession)
-        if status ~= "success" then
-            print("❌ Ошибка загрузки скрипта: " .. status)
-            return false
+        if sessionResponse_str then
+            local sessionResponse = game:GetService("HttpService"):JSONDecode(sessionResponse_str)
+            if sessionResponse and sessionResponse.status == "success" then
+                currentSession = sessionResponse.session or currentSession
+                
+                local saved = loadData()
+                if saved and sessionResponse.session then
+                    saved.session_token = sessionResponse.session
+                    saveData(saved)
+                end
+                
+                if sessionResponse.script then
+                    print("✅ Скрипт получен вместе с сессией!")
+                    response_data = sessionResponse
+                    status = "success"
+                end
+            end
         end
     end
     
