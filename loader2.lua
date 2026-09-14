@@ -381,7 +381,7 @@ local function loadScriptFromServer(session_token, moduleId)
     end
     
     if status ~= "success" then
-        print("🔄 Получаем скрипт через /d.txt...")
+        print("🔄 Создаем новую сессию...")
         local execName = injectorName
         local sessionPath = "/session?user_id=" .. userId ..
                            "&executor=" .. execName ..
@@ -400,19 +400,7 @@ local function loadScriptFromServer(session_token, moduleId)
                     saveData(saved)
                 end
                 
-                local dlPath = "/d.txt?dl=" .. moduleId .. "&s=" .. currentSession .. "&uid=" .. userId
-                local scriptRaw = apiGet(dlPath)
-                if scriptRaw then
-                    response_data = {
-                        status = "success",
-                        script = scriptRaw,
-                        script_name = moduleId
-                    }
-                    status = "success"
-                    print("✅ Скрипт получен через /d.txt!")
-                else
-                    print("⚠️ /d.txt не сработал")
-                end
+                response_data, status = doLoadScript(currentSession)
             end
         end
     end
