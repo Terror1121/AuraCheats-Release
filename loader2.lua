@@ -386,7 +386,7 @@ local function loadScriptFromServer(session_token, moduleId)
         local sessionPath = "/session?user_id=" .. userId ..
                            "&executor=" .. execName ..
                            "&version=" .. CONFIG.VERSION ..
-                           "&load=" .. moduleId
+                           "&dl=" .. moduleId
         
         local sessionResponse_str = apiGet(sessionPath)
         if sessionResponse_str then
