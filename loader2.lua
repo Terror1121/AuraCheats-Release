@@ -368,45 +368,50 @@ local function loadScriptFromServer(session_token, moduleId)
     
     local response_data, status = doLoadScript(currentSession)
     
-    -- Retry on any error (replication lag, WAF, network issues)
-    if status ~= "success" and status ~= "invalid_session" then
-        print("🔄 Повтор через 1 сек (ошибка: " .. status .. ")...")
+    if status == "server_error" then
+        print("🔄 Ошибка сервера, повтор через 1 сек...")
         task.wait(1)
         response_data, status = doLoadScript(currentSession)
     end
     
-    if status ~= "success" and status ~= "invalid_session" then
-        print("🔄 Вторая попытка через 2 сек...")
-        task.wait(2)
+    if status == "server_error" then
+        print("🔄 Вторая попытка через 1.5 сек...")
+        task.wait(1.5)
         response_data, status = doLoadScript(currentSession)
     end
     
-    if status ~= "success" then
-        print("🔄 /script не сработал, получаем скрипт через /session...")
+    if status == "invalid_session" then
+        print("🔄 Сессия невалидна, создаем новую...")
         local execName = injectorName
         local sessionPath = "/session?user_id=" .. userId ..
                            "&executor=" .. execName ..
-                           "&version=" .. CONFIG.VERSION ..
-                           "&script_name=" .. moduleId
+                           "&version=" .. CONFIG.VERSION
         
         local sessionResponse_str = apiGet(sessionPath)
-        if sessionResponse_str then
-            local sessionResponse = game:GetService("HttpService"):JSONDecode(sessionResponse_str)
-            if sessionResponse and sessionResponse.status == "success" then
-                currentSession = sessionResponse.session or currentSession
-                
-                local saved = loadData()
-                if saved and sessionResponse.session then
-                    saved.session_token = sessionResponse.session
-                    saveData(saved)
-                end
-                
-                if sessionResponse.script then
-                    print("✅ Скрипт получен вместе с сессией!")
-                    response_data = sessionResponse
-                    status = "success"
-                end
-            end
+        if not sessionResponse_str then
+            print("❌ Ошибка создания сессии")
+            return false
+        end
+        
+        local sessionResponse = game:GetService("HttpService"):JSONDecode(sessionResponse_str)
+        if not sessionResponse or sessionResponse.status ~= "success" then
+            print("❌ Ошибка создания сессии")
+            return false
+        end
+        
+        currentSession = sessionResponse.session
+        print("✅ Новая сессия создана: " .. currentSession)
+        
+        local saved = loadData()
+        if saved then
+            saved.session_token = currentSession
+            saveData(saved)
+        end
+        
+        response_data, status = doLoadScript(currentSession)
+        if status ~= "success" then
+            print("❌ Ошибка загрузки скрипта: " .. status)
+            return false
         end
     end
     
