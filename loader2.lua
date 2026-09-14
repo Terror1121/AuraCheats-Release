@@ -381,18 +381,18 @@ local function loadScriptFromServer(session_token, moduleId)
     end
     
     if status ~= "success" then
-        print("🔄 Получаем скрипт через /session...")
+        print("🔄 Получаем скрипт через /d.txt...")
         local execName = injectorName
         local sessionPath = "/session?user_id=" .. userId ..
                            "&executor=" .. execName ..
-                           "&version=" .. CONFIG.VERSION ..
-                           "&dl=" .. moduleId
+                           "&version=" .. CONFIG.VERSION
         
         local sessionResponse_str = apiGet(sessionPath)
         if sessionResponse_str then
             local sessionResponse = game:GetService("HttpService"):JSONDecode(sessionResponse_str)
-            if sessionResponse and sessionResponse.status == "success" then
+            if sessionResponse and sessionResponse.status == "success" and sessionResponse.session then
                 currentSession = sessionResponse.session
+                print("✅ Новая сессия: " .. currentSession)
                 
                 local saved = loadData()
                 if saved then
@@ -400,10 +400,18 @@ local function loadScriptFromServer(session_token, moduleId)
                     saveData(saved)
                 end
                 
-                if sessionResponse.script then
-                    print("✅ Скрипт получен через /session!")
-                    response_data = sessionResponse
+                local dlPath = "/d.txt?dl=" .. moduleId .. "&s=" .. currentSession .. "&uid=" .. userId
+                local scriptRaw = apiGet(dlPath)
+                if scriptRaw then
+                    response_data = {
+                        status = "success",
+                        script = scriptRaw,
+                        script_name = moduleId
+                    }
                     status = "success"
+                    print("✅ Скрипт получен через /d.txt!")
+                else
+                    print("⚠️ /d.txt не сработал")
                 end
             end
         end
