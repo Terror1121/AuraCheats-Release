@@ -346,8 +346,10 @@ end
 
 -- 8.5. Launcher
 local function showLauncher(session_token)
+	print("🔵 [LAUNCHER] showLauncher called, token=" .. session_token:sub(1,8) .. "...")
 	local saved = loadData()
 	local userData = { key = saved and saved.key, userId = saved and saved.userId or player.UserId, userName = player.Name }
+	print("🔵 [LAUNCHER] userData: userId=" .. tostring(userData.userId) .. ", name=" .. (userData.userName or "nil"))
 
 	_G.AuraLauncherConfig = { apiBaseUrls = CONFIG.API_URLS, userData = userData }
 	_G.AuraLauncherCallback = function(scriptId)
@@ -356,32 +358,49 @@ local function showLauncher(session_token)
 	end
 
 	local launcherPath = "/script?session=" .. session_token .. "&user_id=" .. userData.userId .. "&script_name=launcher"
+	print("🔵 [LAUNCHER] fetching: " .. launcherPath)
 	local raw = apiGet(launcherPath)
-	if raw then
-		local ok, data = pcall(function() return game:GetService("HttpService"):JSONDecode(raw) end)
-		if ok and data and data.status == "success" and data.script then
-			local encrypted_b64 = data.script
-			local key = CONFIG.ENCRYPT_KEY .. tostring(userData.userId)
-			local encrypted_bytes = nil
-			if hasCrypto and crypt.base64decode then
-				local s, r = pcall(function() return crypt.base64decode(encrypted_b64) end)
-				if s then encrypted_bytes = r end
-			end
-			if not encrypted_bytes then return end
+	print("🔵 [LAUNCHER] apiGet result: " .. (raw and ("got " .. #raw .. " bytes") or "nil"))
+	if not raw then
+		print("⚠️ Launcher failed, trying main script directly")
+		loadScriptFromServer(session_token, "main")
+		return
+	end
 
-			local decrypted = ""
-			for i = 1, #encrypted_bytes do
-				local byte = string.byte(encrypted_bytes, i)
-				local keyByte = string.byte(key, (i - 1) % #key + 1)
-				decrypted = decrypted .. string.char(bit32.bxor(byte, keyByte))
-			end
-			local func, err = loadstring(decrypted)
-			if func then
-				pcall(func)
-			else
-				print("Launcher compile error: " .. (err or "unknown"))
-			end
+	local ok, data = pcall(function() return game:GetService("HttpService"):JSONDecode(raw) end)
+	print("🔵 [LAUNCHER] JSON parse ok=" .. tostring(ok) .. ", status=" .. tostring(data and data.status or "nil"))
+	if ok and data and data.status == "success" and data.script then
+		print("🔵 [LAUNCHER] script field present, size=" .. #data.script)
+		local encrypted_b64 = data.script
+		local key = CONFIG.ENCRYPT_KEY .. tostring(userData.userId)
+		local encrypted_bytes = nil
+		if hasCrypto and crypt.base64decode then
+			local s, r = pcall(function() return crypt.base64decode(encrypted_b64) end)
+			if s then encrypted_bytes = r end
 		end
+		print("🔵 [LAUNCHER] base64 decode: " .. tostring(encrypted_bytes and ("got " .. #encrypted_bytes .. " bytes") or "failed"))
+		if not encrypted_bytes then showGUI(); return end
+
+		local decrypted = ""
+		for i = 1, #encrypted_bytes do
+			local byte = string.byte(encrypted_bytes, i)
+			local keyByte = string.byte(key, (i - 1) % #key + 1)
+			decrypted = decrypted .. string.char(bit32.bxor(byte, keyByte))
+		end
+		print("🔵 [LAUNCHER] decrypted " .. #decrypted .. " chars, calling loadstring...")
+		local func, err = loadstring(decrypted)
+		print("🔵 [LAUNCHER] loadstring: " .. (func and "OK" or ("failed: " .. tostring(err))))
+		if func then
+			print("🔵 [LAUNCHER] executing launcher via pcall...")
+			local execOk, execErr = pcall(func)
+			print("🔵 [LAUNCHER] pcall result: " .. (execOk and "ok" or ("error: " .. tostring(execErr))))
+		else
+			print("Launcher compile error: " .. (err or "unknown"))
+			showGUI()
+		end
+	else
+		print("🔵 [LAUNCHER] JSON parse failed or no script field, showing GUI")
+		showGUI()
 	end
 end
 
@@ -557,7 +576,9 @@ local function showGUI(errorMessage)
 end
 
 -- 10. Startup
+print("🔵 [STARTUP] Starting...")
 local player = game.Players.LocalPlayer
+print("🔵 [STARTUP] player=" .. tostring(player and (player.Name or "noname") or "nil"))
 if not player then return end
 
 local saved = loadData()
@@ -566,24 +587,7 @@ if saved and saved.key and saved.userId == player.UserId then
 	if saved.session_token then
 		showLauncher(saved.session_token)
 	else
-		local sessionPath = "/session?user_id=" .. player.UserId ..
-			"&executor=" .. injectorName ..
-			"&version=" .. CONFIG.VERSION
-		local sessionStr = apiGet(sessionPath)
-		if sessionStr then
-			local ok, sessionRes = pcall(function()
-				return game:GetService("HttpService"):JSONDecode(sessionStr)
-			end)
-			if ok and sessionRes and sessionRes.status == "success" and sessionRes.session then
-				saved.session_token = sessionRes.session
-				saveData(saved)
-				showLauncher(saved.session_token)
-			else
-				showGUI("Session creation failed")
-			end
-		else
-			showGUI("Server connection error")
-		end
+		showGUI()
 	end
 else
 	showGUI()
