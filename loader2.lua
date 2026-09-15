@@ -363,6 +363,7 @@ local function showLauncher(session_token)
 	print("🔵 [LAUNCHER] fetching: " .. launcherPath)
 	local raw = apiGet(launcherPath)
 	print("🔵 [LAUNCHER] apiGet result: " .. (raw and ("got " .. #raw .. " bytes") or "nil"))
+	print("🔵 [LAUNCHER] raw preview: " .. (raw and raw:sub(1,100) or "nil"))
 	if not raw then
 		print("⚠️ Launcher failed, trying main script directly")
 		loadScriptFromServer(session_token, "main")
@@ -401,8 +402,43 @@ local function showLauncher(session_token)
 			showGUI()
 		end
 	else
-		print("🔵 [LAUNCHER] JSON parse failed or no script field, showing GUI")
-		showGUI()
+		print("🔵 [LAUNCHER] JSON failed or not success. Raw: " .. (raw and raw:sub(1,200) or "nil"))
+		print("🔵 [LAUNCHER] Session expired, creating new one...")
+		local newSessionPath = "/session?user_id=" .. userData.userId .. "&executor=" .. injectorName .. "&version=" .. CONFIG.VERSION
+		local newSessionRaw = apiGet(newSessionPath)
+		print("🔵 [LAUNCHER] /session result: " .. (newSessionRaw and ("got " .. #newSessionRaw .. " bytes") or "nil"))
+		if newSessionRaw then
+			local ok2, sessData = pcall(function() return game:GetService("HttpService"):JSONDecode(newSessionRaw) end)
+			if ok2 and sessData and sessData.status == "success" and sessData.session then
+				local newSession = sessData.session
+				print("🔵 [LAUNCHER] New session: " .. newSession:sub(1,8) .. "...")
+				local saved = loadData()
+				if saved then
+					saved.session_token = newSession
+					saveData(saved)
+				end
+				_G.AuraLauncherCallback = function(scriptId)
+					print("🚀 Launcher: launching " .. scriptId)
+					loadScriptFromServer(newSession, scriptId)
+				end
+				local retryPath = "/script?session=" .. newSession .. "&user_id=" .. userData.userId .. "&script_name=launcher"
+				local retryRaw = apiGet(retryPath)
+				print("🔵 [LAUNCHER] Retry /script result: " .. (retryRaw and ("got " .. #retryRaw .. " bytes") or "nil"))
+				if retryRaw then
+					local ok3, retryData = pcall(function() return game:GetService("HttpService"):JSONDecode(retryRaw) end)
+					if ok3 and retryData and retryData.status == "success" and retryData.script then
+						raw = retryRaw
+						data = retryData
+						-- fall through to decryption below
+					end
+				end
+			end
+		end
+		if not data or not data.script then
+			print("🔵 [LAUNCHER] Everything failed, trying main script")
+			loadScriptFromServer(session_token, "main")
+			return
+		end
 	end
 end
 
