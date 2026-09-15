@@ -435,8 +435,8 @@ local function showLauncher(session_token)
 			end
 		end
 		if not data or not data.script then
-			print("🔵 [LAUNCHER] Everything failed, trying main script")
-			loadScriptFromServer(session_token, "main")
+			print("🔵 [LAUNCHER] Failed after retry, showing key GUI")
+			showGUI()
 			return
 		end
 	end
