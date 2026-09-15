@@ -372,38 +372,10 @@ local function showLauncher(session_token)
 
 	local ok, data = pcall(function() return game:GetService("HttpService"):JSONDecode(raw) end)
 	print("🔵 [LAUNCHER] JSON parse ok=" .. tostring(ok) .. ", status=" .. tostring(data and data.status or "nil"))
-	if ok and data and data.status == "success" and data.script then
-		print("🔵 [LAUNCHER] script field present, size=" .. #data.script)
-		local encrypted_b64 = data.script
-		local key = CONFIG.ENCRYPT_KEY .. tostring(userData.userId)
-		local encrypted_bytes = nil
-		if hasCrypto and crypt.base64decode then
-			local s, r = pcall(function() return crypt.base64decode(encrypted_b64) end)
-			if s then encrypted_bytes = r end
-		end
-		print("🔵 [LAUNCHER] base64 decode: " .. tostring(encrypted_bytes and ("got " .. #encrypted_bytes .. " bytes") or "failed"))
-		if not encrypted_bytes then showGUI(); return end
-
-		local decrypted = ""
-		for i = 1, #encrypted_bytes do
-			local byte = string.byte(encrypted_bytes, i)
-			local keyByte = string.byte(key, (i - 1) % #key + 1)
-			decrypted = decrypted .. string.char(bit32.bxor(byte, keyByte))
-		end
-		print("🔵 [LAUNCHER] decrypted " .. #decrypted .. " chars, calling loadstring...")
-		local func, err = loadstring(decrypted)
-		print("🔵 [LAUNCHER] loadstring: " .. (func and "OK" or ("failed: " .. tostring(err))))
-		if func then
-			print("🔵 [LAUNCHER] executing launcher via pcall...")
-			local execOk, execErr = pcall(func)
-			print("🔵 [LAUNCHER] pcall result: " .. (execOk and "ok" or ("error: " .. tostring(execErr))))
-		else
-			print("Launcher compile error: " .. (err or "unknown"))
-			showGUI()
-		end
-	else
-		print("🔵 [LAUNCHER] JSON failed or not success. Raw: " .. (raw and raw:sub(1,200) or "nil"))
-		print("🔵 [LAUNCHER] Session expired, creating new one...")
+	
+	-- Handle expired session
+	if not (ok and data and data.status == "success" and data.script) then
+		print("🔵 [LAUNCHER] Need new session, creating...")
 		local newSessionPath = "/session?user_id=" .. userData.userId .. "&executor=" .. injectorName .. "&version=" .. CONFIG.VERSION
 		local newSessionRaw = apiGet(newSessionPath)
 		print("🔵 [LAUNCHER] /session result: " .. (newSessionRaw and ("got " .. #newSessionRaw .. " bytes") or "nil"))
@@ -413,33 +385,56 @@ local function showLauncher(session_token)
 				local newSession = sessData.session
 				print("🔵 [LAUNCHER] New session: " .. newSession:sub(1,8) .. "...")
 				local saved = loadData()
-				if saved then
-					saved.session_token = newSession
-					saveData(saved)
-				end
+				if saved then saved.session_token = newSession; saveData(saved) end
 				_G.AuraLauncherCallback = function(scriptId)
-					print("🚀 Launcher: launching " .. scriptId)
 					loadScriptFromServer(newSession, scriptId)
 				end
 				local retryPath = "/script?session=" .. newSession .. "&user_id=" .. userData.userId .. "&script_name=launcher"
 				local retryRaw = apiGet(retryPath)
-				print("🔵 [LAUNCHER] Retry /script result: " .. (retryRaw and ("got " .. #retryRaw .. " bytes") or "nil"))
+				print("🔵 [LAUNCHER] Retry /script: " .. (retryRaw and ("got " .. #retryRaw .. " bytes") or "nil"))
 				if retryRaw then
 					local ok3, retryData = pcall(function() return game:GetService("HttpService"):JSONDecode(retryRaw) end)
 					if ok3 and retryData and retryData.status == "success" and retryData.script then
-						raw = retryRaw
+						ok = true
 						data = retryData
-						-- fall through to decryption below
+						print("🔵 [LAUNCHER] Retry data received, decrypting...")
 					end
 				end
 			end
 		end
-		if not data or not data.script then
-			print("🔵 [LAUNCHER] Failed after retry, showing key GUI")
-			showGUI()
-			return
-		end
 	end
+	
+	if ok and data and data.status == "success" and data.script then
+		print("🔵 [LAUNCHER] Decrypting script, " .. #data.script .. " chars")
+		local encrypted_b64 = data.script
+		local key = CONFIG.ENCRYPT_KEY .. tostring(userData.userId)
+		local encrypted_bytes = nil
+		if hasCrypto and crypt.base64decode then
+			local s, r = pcall(function() return crypt.base64decode(encrypted_b64) end)
+			if s then encrypted_bytes = r end
+		end
+		print("🔵 [LAUNCHER] base64: " .. tostring(encrypted_bytes and ("got " .. #encrypted_bytes .. " bytes") or "failed"))
+		if encrypted_bytes then
+			local decrypted = ""
+			for i = 1, #encrypted_bytes do
+				local byte = string.byte(encrypted_bytes, i)
+				local keyByte = string.byte(key, (i - 1) % #key + 1)
+				decrypted = decrypted .. string.char(bit32.bxor(byte, keyByte))
+			end
+			print("🔵 [LAUNCHER] Decrypted " .. #decrypted .. " chars")
+			local func, err = loadstring(decrypted)
+			print("🔵 [LAUNCHER] loadstring: " .. (func and "OK" or ("FAIL: " .. tostring(err))))
+			if func then
+				local execOk, execErr = pcall(func)
+				print("🔵 [LAUNCHER] pcall: " .. (execOk and "OK" or ("ERR: " .. tostring(execErr))))
+				return
+			end
+		end
+		print("🔵 [LAUNCHER] Decryption failed")
+	else
+		print("🔵 [LAUNCHER] No valid script data")
+	end
+	showGUI()
 end
 
 -- 9. GUI
