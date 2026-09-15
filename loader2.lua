@@ -24,6 +24,8 @@ local CONFIG = {
 	VERSION = "2.2.25",
 }
 
+local player = nil
+
 -- 3. HTTP GET (5 methods)
 local function httpGet(url)
 	-- Method 1: syn.request
@@ -577,7 +579,7 @@ end
 
 -- 10. Startup
 print("🔵 [STARTUP] Starting...")
-local player = game.Players.LocalPlayer
+player = game.Players.LocalPlayer
 print("🔵 [STARTUP] player=" .. tostring(player and (player.Name or "noname") or "nil"))
 if not player then return end
 
