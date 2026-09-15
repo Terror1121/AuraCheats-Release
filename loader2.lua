@@ -344,6 +344,47 @@ local function loadScriptFromServer(session_token, moduleId)
 	return true
 end
 
+-- 8.5. Launcher
+local function showLauncher(session_token)
+	local saved = loadData()
+	local userData = { key = saved and saved.key, userId = saved and saved.userId or player.UserId, userName = player.Name }
+
+	_G.AuraLauncherConfig = { apiBaseUrls = CONFIG.API_URLS, userData = userData }
+	_G.AuraLauncherCallback = function(scriptId)
+		print("🚀 Launcher: launching " .. scriptId)
+		loadScriptFromServer(session_token, scriptId)
+	end
+
+	local launcherPath = "/script?session=" .. session_token .. "&user_id=" .. userData.userId .. "&script_name=launcher"
+	local raw = apiGet(launcherPath)
+	if raw then
+		local ok, data = pcall(function() return game:GetService("HttpService"):JSONDecode(raw) end)
+		if ok and data and data.status == "success" and data.script then
+			local encrypted_b64 = data.script
+			local key = CONFIG.ENCRYPT_KEY .. tostring(userData.userId)
+			local encrypted_bytes = nil
+			if hasCrypto and crypt.base64decode then
+				local s, r = pcall(function() return crypt.base64decode(encrypted_b64) end)
+				if s then encrypted_bytes = r end
+			end
+			if not encrypted_bytes then return end
+
+			local decrypted = ""
+			for i = 1, #encrypted_bytes do
+				local byte = string.byte(encrypted_bytes, i)
+				local keyByte = string.byte(key, (i - 1) % #key + 1)
+				decrypted = decrypted .. string.char(bit32.bxor(byte, keyByte))
+			end
+			local func, err = loadstring(decrypted)
+			if func then
+				pcall(func)
+			else
+				print("Launcher compile error: " .. (err or "unknown"))
+			end
+		end
+	end
+end
+
 -- 9. GUI
 local function showGUI(errorMessage)
 	local player = game.Players.LocalPlayer
@@ -484,7 +525,7 @@ local function showGUI(errorMessage)
 
 					task.wait(0.5)
 					gui:Destroy()
-					loadScriptFromServer(result.session_token, "main")
+					showLauncher(result.session_token)
 				else
 					status.Text = "No session_token received"
 					status.TextColor3 = Color3.fromRGB(255, 80, 80)
@@ -523,7 +564,7 @@ local saved = loadData()
 
 if saved and saved.key and saved.userId == player.UserId then
 	if saved.session_token then
-		loadScriptFromServer(saved.session_token, "main")
+		showLauncher(saved.session_token)
 	else
 		local sessionPath = "/session?user_id=" .. player.UserId ..
 			"&executor=" .. injectorName ..
@@ -536,7 +577,7 @@ if saved and saved.key and saved.userId == player.UserId then
 			if ok and sessionRes and sessionRes.status == "success" and sessionRes.session then
 				saved.session_token = sessionRes.session
 				saveData(saved)
-				loadScriptFromServer(saved.session_token, "main")
+				showLauncher(saved.session_token)
 			else
 				showGUI("Session creation failed")
 			end
