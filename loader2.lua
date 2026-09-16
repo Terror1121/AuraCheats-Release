@@ -357,7 +357,7 @@ local function showLauncher(session_token)
 		apiBaseUrls = CONFIG.API_URLS,
 		userData = userData,
 		-- Set to a Roblox asset id when the icon is uploaded, for example: rbxassetid://1234567890
-		iconAssetId = "",
+		iconAssetId = "rbxassetid://105065225970263",
 	}
 	_G.AuraLauncherCallback = function(scriptId)
 		print("🚀 Launcher: launching " .. scriptId)
