@@ -353,7 +353,12 @@ local function showLauncher(session_token)
 	local userData = { key = saved and saved.key, userId = saved and saved.userId or player.UserId, userName = player.Name }
 	print("🔵 [LAUNCHER] userData: userId=" .. tostring(userData.userId) .. ", name=" .. (userData.userName or "nil"))
 
-	_G.AuraLauncherConfig = { apiBaseUrls = CONFIG.API_URLS, userData = userData }
+	_G.AuraLauncherConfig = {
+		apiBaseUrls = CONFIG.API_URLS,
+		userData = userData,
+		-- Set to a Roblox asset id when the icon is uploaded, for example: rbxassetid://1234567890
+		iconAssetId = "",
+	}
 	_G.AuraLauncherCallback = function(scriptId)
 		print("🚀 Launcher: launching " .. scriptId)
 		loadScriptFromServer(session_token, scriptId)
