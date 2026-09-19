@@ -221,6 +221,7 @@ end
 
 -- 8. Script loading
 local function showBlocked(reason)
+	showGUI("Ключ заблокирован. Введите другой ключ.")
 	local blockedGui = Instance.new("ScreenGui")
 	blockedGui.Name = "AuraBlocked"
 	blockedGui.ResetOnSpawn = false
@@ -229,7 +230,7 @@ local function showBlocked(reason)
 	local overlay = Instance.new("Frame")
 	overlay.Size = UDim2.fromScale(1, 1)
 	overlay.BackgroundColor3 = Color3.fromRGB(5, 7, 15)
-	overlay.BackgroundTransparency = 0.12
+	overlay.BackgroundTransparency = 1
 	overlay.Parent = blockedGui
 	local box = Instance.new("Frame")
 	box.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -262,6 +263,30 @@ local function showBlocked(reason)
 	message.TextWrapped = true
 	message.TextXAlignment = Enum.TextXAlignment.Left
 	message.TextYAlignment = Enum.TextYAlignment.Top
+	local copy = Instance.new("TextButton", box)
+	copy.Position = UDim2.new(0, 24, 1, -48)
+	copy.Size = UDim2.fromOffset(210, 32)
+	copy.BackgroundColor3 = Color3.fromRGB(70, 55, 150)
+	copy.BorderSizePixel = 0
+	copy.Text = "Скопировать Discord"
+	copy.TextColor3 = Color3.fromRGB(255, 255, 255)
+	copy.TextSize = 13
+	copy.Font = Enum.Font.GothamBold
+	Instance.new("UICorner", copy).CornerRadius = UDim.new(0, 7)
+	copy.MouseButton1Click:Connect(function()
+		if setclipboard then setclipboard("https://discord.gg/XPwdHN4jHf") end
+		copy.Text = "Ссылка скопирована"
+	end)
+	local close = Instance.new("TextButton", box)
+	close.AnchorPoint = Vector2.new(1, 0)
+	close.Position = UDim2.new(1, -12, 0, 10)
+	close.Size = UDim2.fromOffset(28, 28)
+	close.BackgroundTransparency = 1
+	close.Text = "✕"
+	close.TextColor3 = Color3.fromRGB(255, 110, 120)
+	close.TextSize = 16
+	close.Font = Enum.Font.GothamBold
+	close.MouseButton1Click:Connect(function() blockedGui:Destroy() end)
 end
 
 local function loadScriptFromServer(session_token, moduleId)
@@ -622,15 +647,23 @@ showGUI = function(errorMessage)
 	btnCorner.CornerRadius = UDim.new(0, 8)
 	btnCorner.Parent = btn
 
-	local support = Instance.new("TextLabel")
+	local support = Instance.new("TextButton")
 	support.Size = UDim2.new(1, -40, 0, 20)
 	support.Position = UDim2.new(0, 20, 0, 270)
 	support.BackgroundTransparency = 1
-	support.Text = "discord.gg/XPwdHN4jHf"
+	support.Text = "Скопировать Discord поддержки"
 	support.TextColor3 = Color3.fromRGB(150, 150, 180)
 	support.TextSize = 11
-	support.Font = Enum.Font.Gotham
+	support.Font = Enum.Font.GothamMedium
+	support.AutoButtonColor = false
 	support.Parent = frame
+	local supportCorner = Instance.new("UICorner")
+	supportCorner.CornerRadius = UDim.new(0, 6)
+	supportCorner.Parent = support
+	support.MouseButton1Click:Connect(function()
+		if setclipboard then setclipboard("https://discord.gg/XPwdHN4jHf") end
+		support.Text = "Discord ссылка скопирована"
+	end)
 
 	local attempts = 0
 
