@@ -220,7 +220,16 @@ local function activateKey(key)
 end
 
 -- 8. Script loading
+local showGUI
+local function destroyLauncherGui()
+	local playerGui = game.Players.LocalPlayer and game.Players.LocalPlayer:FindFirstChild("PlayerGui")
+	if not playerGui then return end
+	local launcherGui = playerGui:FindFirstChild("AuraCheats")
+	if launcherGui then launcherGui:Destroy() end
+end
+
 local function showBlocked(reason)
+	showGUI("Ключ заблокирован. Введите другой ключ.")
 	showGUI("Ключ заблокирован. Введите другой ключ.")
 	local blockedGui = Instance.new("ScreenGui")
 	blockedGui.Name = "AuraBlocked"
@@ -354,6 +363,7 @@ local function loadScriptFromServer(session_token, moduleId)
 	if status ~= "success" then
 		print("❌ Script request failed: " .. tostring(status))
 		if tostring(status):sub(1, 8) == "blocked:" then
+			destroyLauncherGui()
 			showBlocked(tostring(status):sub(9))
 		end
 		return false
@@ -440,12 +450,38 @@ local function loadScriptFromServer(session_token, moduleId)
 end
 
 -- 8.5. Launcher
-local showGUI
 local function showLauncher(session_token)
 	print("🔵 [LAUNCHER] showLauncher called, token=" .. session_token:sub(1,8) .. "...")
 	local saved = loadData()
 	local userData = { key = saved and saved.key, userId = saved and saved.userId or player.UserId, userName = player.Name }
 	print("🔵 [LAUNCHER] userData: userId=" .. tostring(userData.userId) .. ", name=" .. (userData.userName or "nil"))
+
+	-- Never show the launcher for an invalid, expired, inactive, or blocked key.
+	if userData.key then
+		local checkPath = "/check?key=" .. userData.key .. "&userId=" .. tostring(userData.userId)
+		local checkRaw = apiGet(checkPath)
+		local checkOk, checkData = false, nil
+		if checkRaw then
+			checkOk, checkData = pcall(function()
+				return game:GetService("HttpService"):JSONDecode(checkRaw)
+			end)
+		end
+		if checkOk and checkData then
+			if checkData.status == "blocked" then
+				destroyLauncherGui()
+				showBlocked(checkData.reason or "Без указания причины")
+				return
+			elseif checkData.status == "error" or checkData.status == "inactive" or checkData.status == "expired" then
+				destroyLauncherGui()
+				showGUI(checkData.message == "Key not found" and "Ключ не найден на сервере. Введите новый ключ." or (checkData.message or "Ключ недействителен."))
+				return
+			elseif checkData.status ~= "active" then
+				destroyLauncherGui()
+				showGUI("Не удалось подтвердить ключ. Введите его снова.")
+				return
+			end
+		end
+	end
 
 	_G.AuraLauncherConfig = {
 		apiBaseUrls = CONFIG.API_URLS,
