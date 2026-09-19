@@ -454,6 +454,7 @@ local function showLauncher(session_token)
 		local newSessionPath = "/session?user_id=" .. userData.userId .. "&executor=" .. injectorName .. "&version=" .. CONFIG.VERSION
 		local newSessionRaw = apiGet(newSessionPath)
 		print("🔵 [LAUNCHER] /session result: " .. (newSessionRaw and ("got " .. #newSessionRaw .. " bytes") or "nil"))
+		print("🔵 [LAUNCHER] /session preview: " .. (newSessionRaw and newSessionRaw:sub(1,200) or "nil"))
 		if newSessionRaw then
 			local ok2, sessData = pcall(function() return game:GetService("HttpService"):JSONDecode(newSessionRaw) end)
 			if ok2 and sessData and sessData.status == "blocked" then
