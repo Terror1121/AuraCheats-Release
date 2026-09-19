@@ -446,6 +446,10 @@ local function showLauncher(session_token)
 				showBlocked(checkData.reason or "Без указания причины")
 				return
 			end
+			if checkOk and checkData and (checkData.status == "error" or checkData.status == "inactive" or checkData.status == "expired") then
+				showGUI(checkData.message == "Key not found" and "Ключ не найден на сервере. Введите ключ снова." or (checkData.message or "Ключ недействителен."))
+				return
+			end
 		end
 	end
 
@@ -457,7 +461,7 @@ local function showLauncher(session_token)
 	}
 	_G.AuraLauncherCallback = function(scriptId)
 		print("🚀 Launcher: launching " .. scriptId)
-		loadScriptFromServer(session_token, scriptId)
+		return loadScriptFromServer(session_token, scriptId)
 	end
 
 	local launcherPath = "/script?session=" .. session_token .. "&user_id=" .. userData.userId .. "&script_name=launcher"
