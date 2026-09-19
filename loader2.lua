@@ -405,6 +405,7 @@ local function loadScriptFromServer(session_token, moduleId)
 end
 
 -- 8.5. Launcher
+local showGUI
 local function showLauncher(session_token)
 	print("🔵 [LAUNCHER] showLauncher called, token=" .. session_token:sub(1,8) .. "...")
 	local saved = loadData()
@@ -465,6 +466,12 @@ local function showLauncher(session_token)
 				showBlocked(sessData.reason or "Без указания причины")
 				return
 			end
+			if ok2 and sessData and sessData.status == "error" then
+				local message = sessData.message or "Ошибка лицензии"
+				print("🔵 [LAUNCHER] license error: " .. tostring(message))
+				showGUI(message == "License not found" and "Ключ не найден на сервере. Введите ключ снова." or message)
+				return
+			end
 			if ok2 and sessData and sessData.status == "success" and sessData.session then
 				local newSession = sessData.session
 				print("🔵 [LAUNCHER] New session: " .. newSession:sub(1,8) .. "...")
@@ -522,7 +529,7 @@ local function showLauncher(session_token)
 end
 
 -- 9. GUI
-local function showGUI(errorMessage)
+showGUI = function(errorMessage)
 	local player = game.Players.LocalPlayer
 	if not player then return end
 
