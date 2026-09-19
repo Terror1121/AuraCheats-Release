@@ -255,7 +255,7 @@ local function showBlocked(reason)
 	message.Position = UDim2.new(0, 24, 0, 68)
 	message.Size = UDim2.new(1, -48, 0, 75)
 	message.BackgroundTransparency = 1
-	message.Text = "Ваш ключ заблокирован по причине:\n" .. tostring(reason)
+	message.Text = "Ваш ключ заблокирован по причине:\n" .. tostring(reason) .. "\n\nПоддержка: discord.gg/XPwdHN4jHf"
 	message.TextColor3 = Color3.fromRGB(235, 238, 250)
 	message.TextSize = 14
 	message.Font = Enum.Font.Gotham
