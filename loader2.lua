@@ -456,6 +456,14 @@ local function showLauncher(session_token)
 		print("🔵 [LAUNCHER] /session result: " .. (newSessionRaw and ("got " .. #newSessionRaw .. " bytes") or "nil"))
 		if newSessionRaw then
 			local ok2, sessData = pcall(function() return game:GetService("HttpService"):JSONDecode(newSessionRaw) end)
+			if ok2 and sessData and sessData.status == "blocked" then
+				showBlocked(sessData.reason or "Без указания причины")
+				return
+			end
+			if ok2 and sessData and sessData.message == "Key blocked" then
+				showBlocked(sessData.reason or "Без указания причины")
+				return
+			end
 			if ok2 and sessData and sessData.status == "success" and sessData.session then
 				local newSession = sessData.session
 				print("🔵 [LAUNCHER] New session: " .. newSession:sub(1,8) .. "...")
