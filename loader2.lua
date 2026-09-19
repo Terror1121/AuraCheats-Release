@@ -191,6 +191,8 @@ local function activateKey(key)
 
 	if response.status == "success" then
 		return true, response
+	elseif response.status == "error" and response.message == "Key blocked" then
+		return false, "Ваш ключ заблокирован по причине:\n" .. tostring(response.reason or "Без указания причины")
 	elseif response.status == "error" and (response.message == "Key already activated" or response.message == "Key is active") then
 		local sessionPath = "/session?user_id=" .. tostring(player.UserId) ..
 			"&executor=" .. tostring(injectorName) ..
@@ -207,6 +209,9 @@ local function activateKey(key)
 					userId = player.UserId
 				}
 			end
+			if ok2 and sessionRes and sessionRes.message == "Key blocked" then
+				return false, "Ваш ключ заблокирован по причине:\n" .. tostring(sessionRes.reason or "Без указания причины")
+			end
 		end
 		return false, "Session creation failed"
 	end
@@ -215,6 +220,50 @@ local function activateKey(key)
 end
 
 -- 8. Script loading
+local function showBlocked(reason)
+	local blockedGui = Instance.new("ScreenGui")
+	blockedGui.Name = "AuraBlocked"
+	blockedGui.ResetOnSpawn = false
+	blockedGui.DisplayOrder = 10000
+	blockedGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+	local overlay = Instance.new("Frame")
+	overlay.Size = UDim2.fromScale(1, 1)
+	overlay.BackgroundColor3 = Color3.fromRGB(5, 7, 15)
+	overlay.BackgroundTransparency = 0.12
+	overlay.Parent = blockedGui
+	local box = Instance.new("Frame")
+	box.AnchorPoint = Vector2.new(0.5, 0.5)
+	box.Position = UDim2.fromScale(0.5, 0.5)
+	box.Size = UDim2.fromOffset(430, 190)
+	box.BackgroundColor3 = Color3.fromRGB(20, 20, 35)
+	box.BorderSizePixel = 0
+	box.Parent = overlay
+	Instance.new("UICorner", box).CornerRadius = UDim.new(0, 12)
+	local outline = Instance.new("UIStroke", box)
+	outline.Color = Color3.fromRGB(255, 83, 100)
+	outline.Thickness = 1.5
+	local title = Instance.new("TextLabel", box)
+	title.Position = UDim2.new(0, 24, 0, 22)
+	title.Size = UDim2.new(1, -48, 0, 30)
+	title.BackgroundTransparency = 1
+	title.Text = "Ключ заблокирован"
+	title.TextColor3 = Color3.fromRGB(255, 110, 120)
+	title.TextSize = 21
+	title.Font = Enum.Font.GothamBold
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	local message = Instance.new("TextLabel", box)
+	message.Position = UDim2.new(0, 24, 0, 68)
+	message.Size = UDim2.new(1, -48, 0, 75)
+	message.BackgroundTransparency = 1
+	message.Text = "Ваш ключ заблокирован по причине:\n" .. tostring(reason)
+	message.TextColor3 = Color3.fromRGB(235, 238, 250)
+	message.TextSize = 14
+	message.Font = Enum.Font.Gotham
+	message.TextWrapped = true
+	message.TextXAlignment = Enum.TextXAlignment.Left
+	message.TextYAlignment = Enum.TextYAlignment.Top
+end
+
 local function loadScriptFromServer(session_token, moduleId)
 	local player = game.Players.LocalPlayer
 	local userId = player.UserId
@@ -232,7 +281,13 @@ local function loadScriptFromServer(session_token, moduleId)
 		if not ok or not res then return nil, "parse_error" end
 
 		if res.status == "error" then
+			if res.message == "Key blocked" or tostring(res.detail or ""):find("Key blocked", 1, true) then
+				return nil, "blocked:" .. tostring(res.reason or res.detail or "Без указания причины")
+			end
 			return nil, "server_error"
+		end
+		if res.detail and tostring(res.detail):find("Key blocked", 1, true) then
+			return nil, "blocked:" .. tostring(res.detail)
 		end
 		if res.status ~= "success" then
 			return nil, "unknown_status"
@@ -272,6 +327,9 @@ local function loadScriptFromServer(session_token, moduleId)
 	end
 
 	if status ~= "success" then
+		if tostring(status):sub(1, 8) == "blocked:" then
+			showBlocked(tostring(status):sub(9))
+		end
 		return false
 	end
 
@@ -352,6 +410,18 @@ local function showLauncher(session_token)
 	local saved = loadData()
 	local userData = { key = saved and saved.key, userId = saved and saved.userId or player.UserId, userName = player.Name }
 	print("🔵 [LAUNCHER] userData: userId=" .. tostring(userData.userId) .. ", name=" .. (userData.userName or "nil"))
+
+	if userData.key then
+		local checkPath = "/check?key=" .. userData.key .. "&userId=" .. tostring(userData.userId)
+		local checkRaw = apiGet(checkPath)
+		if checkRaw then
+			local checkOk, checkData = pcall(function() return game:GetService("HttpService"):JSONDecode(checkRaw) end)
+			if checkOk and checkData and checkData.status == "blocked" then
+				showBlocked(checkData.reason or "Без указания причины")
+				return
+			end
+		end
+	end
 
 	_G.AuraLauncherConfig = {
 		apiBaseUrls = CONFIG.API_URLS,
