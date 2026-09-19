@@ -352,6 +352,7 @@ local function loadScriptFromServer(session_token, moduleId)
 	end
 
 	if status ~= "success" then
+		print("❌ Script request failed: " .. tostring(status))
 		if tostring(status):sub(1, 8) == "blocked:" then
 			showBlocked(tostring(status):sub(9))
 		end
@@ -360,7 +361,10 @@ local function loadScriptFromServer(session_token, moduleId)
 
 	-- Decode Base64
 	local encryptedB64 = response.script
-	if not encryptedB64 then return false end
+	if not encryptedB64 then
+		print("❌ Script response has no encrypted payload: " .. tostring(moduleId))
+		return false
+	end
 
 	local encryptedBytes = nil
 
@@ -379,7 +383,10 @@ local function loadScriptFromServer(session_token, moduleId)
 		if ok then encryptedBytes = res end
 	end
 
-	if not encryptedBytes then return false end
+	if not encryptedBytes then
+		print("❌ Base64 decode failed: " .. tostring(moduleId))
+		return false
+	end
 
 	-- XOR decrypt
 	local key = CONFIG.ENCRYPT_KEY .. tostring(userId)
@@ -416,16 +423,19 @@ local function loadScriptFromServer(session_token, moduleId)
 
 	-- Compile and run
 	local func, err = loadstring(decrypted)
-	if not func then return false end
+	if not func then
+		print("❌ Script compile error: " .. tostring(err))
+		return false
+	end
 
-	task.spawn(function()
-		task.wait(1)
-		local ok, execErr = pcall(func, keyData)
-		if not ok then
-			print("Script execution error: " .. tostring(execErr))
-		end
-	end)
+	task.wait(1)
+	local ok, execErr = pcall(func, keyData)
+	if not ok then
+		print("❌ Script execution error: " .. tostring(execErr))
+		return false
+	end
 
+	print("✅ Script executed: " .. tostring(moduleId))
 	return true
 end
 
@@ -491,7 +501,7 @@ local function showLauncher(session_token)
 				local saved = loadData()
 				if saved then saved.session_token = newSession; saveData(saved) end
 				_G.AuraLauncherCallback = function(scriptId)
-					loadScriptFromServer(newSession, scriptId)
+					return loadScriptFromServer(newSession, scriptId)
 				end
 				local retryPath = "/script?session=" .. newSession .. "&user_id=" .. userData.userId .. "&script_name=launcher"
 				local retryRaw = apiGet(retryPath)
